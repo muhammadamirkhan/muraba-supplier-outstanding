@@ -18,14 +18,32 @@ the G: drive, so nothing extra is needed. `dev_bypass = true` in
 
 ## Deploy to Streamlit Cloud
 
-There is no G: drive on Cloud, so the secret **must** be set there:
+Repo: `muhammadamirkhan/muraba-supplier-outstanding` (public — no data lives in
+it; everything comes from BC at runtime).
 
-App → Settings → Secrets:
+There is no G: drive on Cloud, so Secrets must carry both the BC credential and
+the sales-agent figures. App → Settings → Secrets:
 
 ```toml
 password = "<pick one>"
 bc_client_secret = "<the Value from Azure, not the Secret ID>"
+
+[agents.Abhilash]
+earned = 0
+paid = 0
+
+[agents.Eoghan]
+earned = 0
+paid = 0
+
+[agents.Marius]
+earned = 0
+paid = 0
 ```
+
+Fill the agent figures from Finance's Inhouse Com sheet — they name individuals,
+which is why they are kept out of the repo (`agents_manual.json` is gitignored;
+`agents_manual.example.json` is the template).
 
 Do **not** set `dev_bypass` on Cloud — it would remove the password gate.
 
