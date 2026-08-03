@@ -1,0 +1,21 @@
+{
+  "_comment": [
+    "TEMPLATE — copy to agents_manual.json (gitignored) for local use, or better,",
+    "put the same values in Streamlit Cloud -> Settings -> Secrets as:",
+    "",
+    "  [agents.Abhilash]",
+    "  earned = 0",
+    "  paid = 0",
+    "",
+    "In-house sales agents are staff, not vendors: BC never sees an invoice from",
+    "them. Commission EARNED is a manual Finance entitlement (Excel 'Inhouse Com'",
+    "sheet) and is not in BC at all. Commission PAID exists on GL 21014 but that",
+    "account has no agent dimension, so most postings cannot be attributed.",
+    "These figures name individuals — keep them out of the repo."
+  ],
+  "agents": {
+    "Abhilash": { "earned": 0, "paid": 0 },
+    "Eoghan":   { "earned": 0, "paid": 0 },
+    "Marius":   { "earned": 0, "paid": 0 }
+  }
+}

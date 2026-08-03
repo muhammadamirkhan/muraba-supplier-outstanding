@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Supplier Outstanding</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#eef1f6;--card:#ffffff;--line:#e2e7ef;--txt:#1f2a37;--mut:#6b7686;--blue:#4472C4;--slate:#44546A;--accent:#2f5597;--track:#eef2f8;--soft:#f6f8fb;}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',Calibri,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 24px 40px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid var(--blue);padding-bottom:14px;margin-bottom:22px}
+.head h1{font-size:23px;margin:0;color:var(--slate);font-weight:700;letter-spacing:.2px}
+.head .s{color:var(--mut);font-size:13px;margin-top:3px}
+.head .asof{text-align:right;color:var(--mut);font-size:12px}
+.head .asof b{color:var(--slate);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.kpi.lead{background:linear-gradient(135deg,#4472C4,#2f5597);border:none}
+.kpi.lead .lbl,.kpi.lead .val,.kpi.lead .note{color:#fff}
+.kpi .lbl{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.kpi .val{font-size:23px;font-weight:700;margin-top:8px;color:var(--slate)}
+.kpi .note{color:var(--mut);font-size:11px;margin-top:5px}
+.grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin-bottom:22px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.panel h2{font-size:13px;margin:0 0 14px;color:var(--slate);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.chartbox{position:relative;height:330px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--mut)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 10px;border-bottom:1px solid var(--line)}
+thead th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;background:var(--soft)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.suprow{cursor:pointer}
+tr.suprow:hover{background:var(--soft)}
+.cat{display:inline-block;font-size:10.5px;padding:2px 9px;border-radius:20px;background:#eef2fb;color:var(--accent);border:1px solid #d9e2f3;white-space:nowrap;font-weight:600}
+.pbar{display:flex;align-items:center;gap:8px;min-width:120px}
+.pbar .track{flex:1;height:7px;border-radius:5px;background:var(--track);overflow:hidden;display:flex}
+.pbar .fill{height:100%;background:var(--blue)}
+.pbar .filldue{height:100%;background:#e3a857}
+.pbar .pct{font-size:11px;color:var(--mut);width:74px;text-align:right;font-variant-numeric:tabular-nums}
+.detail{background:var(--soft)}
+.detail>td{padding:0}
+.detailinner{padding:16px 18px}
+.note{color:var(--mut);font-size:12px;margin:0 0 10px;font-style:italic}
+.sumcards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.sumcard{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 16px;min-width:120px}
+.sumcard.lead{border-color:var(--blue);background:#f5f8fe}
+.sumcards.biff{margin-top:-4px}
+.sumcard.con{border-left:3px solid var(--blue)}
+.sumcard.var{border-left:3px solid #e3a857}
+.supviz{margin:4px 0 6px}
+.sumcard .l{color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:600}
+.sumcard .v{font-size:16px;font-weight:700;margin-top:3px;color:var(--slate)}
+.itab{width:100%;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.itab th,.itab td{padding:7px 10px;border-bottom:1px solid var(--line)}
+.itab thead th{background:#f0f3f9}
+.caret{display:inline-block;width:14px;color:var(--mut);transition:transform .15s}
+.open .caret{transform:rotate(90deg)}
+.btn{background:#fff;color:var(--slate);border:1px solid var(--line);border-radius:7px;padding:5px 11px;font-size:12px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+.btn.print{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.print:hover{background:var(--accent);color:#fff}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.controls .catbtn{background:#fff;color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:6px 13px;font-size:12px;cursor:pointer;font-weight:600}
+.controls .catbtn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+select{background:#fff;color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-size:13px;min-width:240px}
+label.sl{color:var(--mut);font-size:12px;font-weight:600}
+.tag{font-size:10px;color:var(--mut)}
+.foot{color:var(--mut);font-size:11px;margin-top:20px;line-height:1.6}
+.ppkpis{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:4px}
+.ppk{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:10px 16px;min-width:150px}
+.ppk .l{color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:600}
+.ppk .v{font-size:22px;font-weight:700;margin-top:3px;color:var(--slate)}
+.ppk.good .v{color:#2e9e57}
+.ppsub{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin:6px 0 8px}
+@media(max-width:1000px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+#printArea{display:none}
+@media print{
+ @page{size:landscape;margin:0}
+ html,body{background:#fff !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .wrap{display:none !important}
+ #printArea{display:block !important;position:static;width:100%;padding:12mm 10mm;color:#000;font-family:Calibri,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ #printArea *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+ #printArea .soatitle{font-size:18px;font-weight:bold;color:#44546A;margin:0}
+ #printArea .soasub{font-size:12px;color:#44546A;margin:2px 0 14px}
+ #printArea table{width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:8px;table-layout:auto}
+ #printArea thead th{background:#4472C4 !important;color:#fff !important;font-weight:bold;border:1px solid #3B62B0;padding:6px 6px;text-align:center}
+ #printArea thead tr.vspace th{height:9mm;background:#fff !important;color:#fff;border:none !important;padding:0}
+ #printArea tr{page-break-inside:avoid;break-inside:avoid}
+ #printArea thead{display:table-header-group}
+ #printArea tfoot{display:table-footer-group}
+ #printArea tbody td{border:1px solid #9CB7E0;padding:4px 6px;color:#1F3864;text-align:center;vertical-align:top}
+ #printArea tbody tr:nth-child(even) td{background:#D9E1F3 !important}
+ #printArea td.txt{text-align:left}
+ #printArea td.num{text-align:right;white-space:nowrap}
+ #printArea tr.total td{font-weight:bold;background:#fff !important;border:none;border-top:2px solid #4472C4;color:#1F3864}
+ #printArea tr.pct td{background:#fff !important;border:none;color:#44546A;font-style:italic}
+ #printArea .pshead{font-size:13px;font-weight:bold;color:#44546A;margin:14px 0 4px}
+}
+</style></head><body><div class="wrap">
+<div class="head">
+ <div><h1>Supplier Outstanding</h1><div class="s">Muraba · Accounts Payable · Statement of Account register</div></div>
+ <div class="asof">As of<br><b>__ASOF__</b><br>Amounts in AED</div>
+</div>
+<div class="kpis" id="kpis"></div>
+<div class="grid2">
+<div class="panel"><h2>Outstanding by Supplier</h2><div class="chartbox"><canvas id="supChart"></canvas></div></div>
+<div class="panel"><h2>Outstanding by Category</h2><div class="chartbox"><canvas id="catChart"></canvas></div><div class="legend" id="catLegend"></div></div>
+</div>
+<div class="panel" style="margin-bottom:22px">
+<h2>Payment Performance — how promptly we pay suppliers</h2>
+<div class="ppkpis" id="ppkpis"></div>
+<div class="grid2" style="margin-top:8px;margin-bottom:0">
+ <div><div class="ppsub">Paid value by payment speed</div><div class="chartbox" style="height:250px"><canvas id="puncChart"></canvas></div>
+   <div class="legend">
+     <span><span class="dot" style="background:#3ec46d"></span>&le;30d (on time)</span>
+     <span><span class="dot" style="background:#e3a857"></span>31-60d</span>
+     <span><span class="dot" style="background:#f08a3c"></span>61-90d</span>
+     <span><span class="dot" style="background:#e35d6a"></span>90+d</span></div></div>
+ <div><div class="ppsub">Average days to pay, by quarter</div><div class="chartbox" style="height:250px"><canvas id="trendChart"></canvas></div></div>
+</div>
+<div class="tag" style="margin-top:10px">On-time = settled within 30 days of invoice date. Based on dated invoice&rarr;payment records covering AED <span id="ppcov"></span> of payments.</div>
+</div>
+<div class="panel">
+<h2>Supplier Register — click a row for the statement summary; print for the full SOA</h2>
+<div class="controls">
+<label class="sl">Jump to supplier:</label>
+<select id="supSelect"><option value="__ALL__">— All suppliers —</option></select>
+<span style="flex:1"></span>
+<button class="catbtn active" data-f="all">All</button>
+<button class="catbtn" data-f="outstanding">Has balance</button>
+<button class="catbtn" data-f="Construction">Construction</button>
+<button class="catbtn" data-f="Project Management">Project Mgmt</button>
+<button class="catbtn" data-f="Marketing">Marketing</button>
+</div>
+<table id="suptable"><thead><tr>
+<th>Supplier</th><th>Category</th><th class="num">Invoiced</th><th class="num">Paid</th>
+<th class="num">Outstanding</th><th>Paid % / Due %</th><th></th>
+</tr></thead><tbody id="tbody"></tbody></table>
+</div>
+<div class="foot" id="foot"></div>
+</div>
+<div id="printArea"></div>
+<script>
+const DATA=__DATA_JSON__, LEDGERS=__LEDGERS_JSON__, PERF=__PERF_JSON__;
+const C=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmt=n=>(n==null||n==='')?'—':Math.round(n).toLocaleString('en-US');
+const sup=Object.values(DATA).sort((a,b)=>(b.outstanding_aed||0)-(a.outstanding_aed||0));
+const SIDX={}; sup.forEach((s,i)=>SIDX[s.name]=i);
+const supCharts={};
+function resetSupCharts(){Object.values(supCharts).forEach(c=>{try{c.destroy();}catch(e){}});for(const k in supCharts)delete supCharts[k];}
+function renderSupChart(s){
+ if(!s||!s.has_soa) return;
+ const id='supchart_'+SIDX[s.name], el=document.getElementById(id);
+ if(!el||supCharts[id]) return;
+ const bd=s.breakdown, ccy=s.currency;
+ const yfmt=v=>v>=1e6?(v/1e6)+'M':v>=1e3?(v/1e3)+'k':v;
+ let cfg;
+ if(bd&&bd.bifurcate){
+  cfg={type:'bar',data:{labels:['Invoiced','Paid','Balance'],datasets:[
+    {label:'Contract',data:[bd.con.inv,bd.con.paid,bd.con.out],backgroundColor:C('--blue'),borderRadius:3,stack:'a',maxBarThickness:70},
+    {label:'Variation',data:[bd.var.inv,bd.var.paid,bd.var.out],backgroundColor:'#e3a857',borderRadius:3,stack:'a',maxBarThickness:70}]},
+   options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,font:{size:11},color:C('--mut')}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)+' '+ccy}}},
+    scales:{x:{stacked:true,grid:{display:false},ticks:{color:C('--slate'),font:{size:11}}},
+      y:{stacked:true,grid:{color:C('--line')},ticks:{color:C('--mut'),callback:yfmt}}}}};
+ } else {
+  cfg={type:'bar',data:{labels:['Invoiced','Paid','Balance'],datasets:[
+    {data:[s.invoiced_orig||0,s.paid_orig||0,s.outstanding_orig||0],backgroundColor:[C('--blue'),'#3ec46d','#e3a857'],borderRadius:3,maxBarThickness:70}]},
+   options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.parsed.y)+' '+ccy}}},
+    scales:{x:{grid:{display:false},ticks:{color:C('--slate'),font:{size:11}}},
+      y:{grid:{color:C('--line')},ticks:{color:C('--mut'),callback:yfmt}}}}};
+ }
+ supCharts[id]=new Chart(el,cfg);
+}
+const totOut=sup.reduce((s,x)=>s+(x.outstanding_aed||0),0);
+const totInv=sup.reduce((s,x)=>s+(x.has_soa?(x.invoiced_aed||0):0),0);
+const totPaid=sup.reduce((s,x)=>s+(x.has_soa?(x.paid_aed||0):0),0);
+const withOut=sup.filter(s=>(s.outstanding_aed||0)>1).length;
+const collected=totInv>0?100*totPaid/totInv:0;
+document.getElementById('kpis').innerHTML=[
+ ['Total Outstanding',fmt(totOut),withOut+' suppliers with a balance',true],
+ ['Total Invoiced',fmt(totInv),'across all statements',false],
+ ['Total Paid',fmt(totPaid),'settled to date',false],
+ ['Paid %',collected.toFixed(1)+'%','of invoiced value',false],
+ ['Due %',(100-collected).toFixed(1)+'%','outstanding liability',false]
+].map(k=>`<div class="kpi${k[3]?' lead':''}"><div class="lbl">${k[0]}</div><div class="val">${k[1]}</div><div class="note">${k[2]}</div></div>`).join('');
+
+const wd=sup.filter(s=>(s.outstanding_aed||0)>1);
+new Chart(document.getElementById('supChart'),{type:'bar',
+ data:{labels:wd.map(s=>s.name),datasets:[{data:wd.map(s=>s.outstanding_aed),backgroundColor:C('--blue'),borderRadius:3,barThickness:'flex',maxBarThickness:20}]},
+ options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.parsed.x)+' AED'}}},
+  scales:{x:{ticks:{color:C('--mut'),callback:v=>v/1e6+'M'},grid:{color:C('--line')}},
+          y:{ticks:{color:C('--slate'),font:{size:10.5}},grid:{display:false}}}}});
+
+const PAL=['#4472C4','#2f5597','#8EAADB','#44546A','#A9C0E8','#6b7a99','#c7d4ec','#3B62B0'];
+const cats={}; sup.forEach(s=>{if((s.outstanding_aed||0)>1)cats[s.category]=(cats[s.category]||0)+s.outstanding_aed;});
+const ck=Object.keys(cats).sort((a,b)=>cats[b]-cats[a]);
+new Chart(document.getElementById('catChart'),{type:'doughnut',
+ data:{labels:ck,datasets:[{data:ck.map(c=>cats[c]),backgroundColor:ck.map((c,i)=>PAL[i%PAL.length]),borderColor:'#fff',borderWidth:2}]},
+ options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+  plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.parsed)+' AED ('+(100*c.parsed/totOut).toFixed(0)+'%)'}}}}});
+document.getElementById('catLegend').innerHTML=ck.map((c,i)=>`<span><span class="dot" style="background:${PAL[i%PAL.length]}"></span>${c} · ${fmt(cats[c])}</span>`).join('');
+const PB={"0-30":"#3ec46d","31-60":"#e3a857","61-90":"#f08a3c","90+":"#e35d6a"},PBK=["0-30","31-60","61-90","90+"];
+const cp=PERF.company;
+document.getElementById('ppkpis').innerHTML=[
+ ['On-Time Rate',cp.w30+'%','paid within 30 days','good'],
+ ['Avg Days to Pay',cp.avg+' days','invoice to payment',''],
+ ['Within 60 Days',cp.w60+'%','of paid value',''],
+ ['Payments Analysed','AED '+fmt(cp.paid),'dated records','']
+].map(k=>`<div class="ppk ${k[3]}"><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="l" style="text-transform:none;font-weight:400;margin-top:3px">${k[2]}</div></div>`).join('');
+document.getElementById('ppcov').textContent=fmt(cp.paid);
+new Chart(document.getElementById('puncChart'),{type:'doughnut',
+ data:{labels:PBK.map(b=>b+'d'),datasets:[{data:PBK.map(b=>cp.buckets[b]),backgroundColor:PBK.map(b=>PB[b]),borderColor:'#fff',borderWidth:2}]},
+ options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': AED '+fmt(c.parsed)+' ('+(100*c.parsed/cp.paid).toFixed(0)+'%)'}}}}});
+new Chart(document.getElementById('trendChart'),{type:'bar',
+ data:{labels:PERF.trend.map(t=>t.q),datasets:[{data:PERF.trend.map(t=>Math.max(0,t.avg)),backgroundColor:PERF.trend.map(t=>t.avg<=30?'#3ec46d':t.avg<=60?'#e3a857':'#e35d6a'),borderRadius:3}]},
+ options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>PERF.trend[c.dataIndex].avg+' days avg · AED '+fmt(PERF.trend[c.dataIndex].paid)}}},
+  scales:{x:{ticks:{color:C('--mut'),font:{size:9},maxRotation:50,minRotation:45},grid:{display:false}},y:{ticks:{color:C('--mut'),callback:v=>v+'d'},grid:{color:C('--line')}}}}});
+
+const sel=document.getElementById('supSelect');
+sup.forEach(s=>{const o=document.createElement('option');o.value=s.name;o.textContent=s.name+((s.outstanding_aed||0)>1?'  ·  '+fmt(s.outstanding_aed)+' AED':'');sel.appendChild(o);});
+function collectedBar(s){
+ if(!s.has_soa||!(s.invoiced_aed>0)) return '<span class="tag">—</span>';
+ const p=Math.min(100,100*s.paid_aed/s.invoiced_aed), du=Math.max(0,100-p);
+ return `<div class="pbar" title="Paid ${p.toFixed(1)}% · Due ${du.toFixed(1)}%"><div class="track"><div class="fill" style="width:${p}%"></div><div class="filldue" style="width:${du}%"></div></div><div class="pct">${p.toFixed(0)}% / ${du.toFixed(0)}%</div></div>`;
+}
+function detail(s){
+ const cc=s.currency, oc=cc!=='AED'?` <span class="tag">(SOA currency ${cc})</span>`:'';
+ let summ=s.has_soa?`<div class="sumcards">
+   <div class="sumcard"><div class="l">Total Invoiced</div><div class="v">${fmt(s.invoiced_orig)} <span class="tag">${cc}</span></div></div>
+   <div class="sumcard"><div class="l">Total Paid</div><div class="v">${fmt(s.paid_orig)} <span class="tag">${cc}</span></div></div>
+   <div class="sumcard lead"><div class="l">Balance Pending</div><div class="v">${fmt(s.outstanding_orig)} <span class="tag">${cc}</span></div></div>
+   ${cc!=='AED'?`<div class="sumcard"><div class="l">Balance (AED)</div><div class="v">${fmt(s.outstanding_aed)}</div></div>`:''}
+  </div>`:`<p class="note">No Statement of Account on file for this supplier.</p>`;
+ const bd=s.breakdown;
+ let bifCards='';
+ if(bd&&bd.bifurcate){
+  bifCards=`<div class="sumcards biff">
+   <div class="sumcard con"><div class="l">Contract — Invoiced</div><div class="v">${fmt(bd.con.inv)} <span class="tag">${cc}</span></div></div>
+   <div class="sumcard con"><div class="l">Contract — Balance</div><div class="v">${fmt(bd.con.out)} <span class="tag">${cc}</span></div></div>
+   <div class="sumcard var"><div class="l">Variation — Invoiced</div><div class="v">${fmt(bd.var.inv)} <span class="tag">${cc}</span></div></div>
+   <div class="sumcard var"><div class="l">Variation — Balance</div><div class="v">${fmt(bd.var.out)} <span class="tag">${cc}</span></div></div>
+  </div>`;
+ }
+ let chartBlock=s.has_soa?`<div class="supviz"><div class="ppsub">Invoiced &middot; Paid &middot; Balance Pending${(bd&&bd.bifurcate)?' — split by Contract vs Variation':''}</div>
+   <div class="chartbox" style="height:230px"><canvas id="supchart_${SIDX[s.name]}"></canvas></div></div>`:'';
+ const pp=PERF.by_supplier[s.name];
+ const ppline=pp?`<p class="note">Payment speed: avg <b>${pp.avg} days</b> to pay &middot; ${pp.w30}% on-time (&le;30d) &middot; analysed AED ${fmt(pp.paid)} paid.</p>`:'';
+ let inv='';
+ if(s.opens&&s.opens.length){
+  inv=`<table class="itab"><thead><tr><th>Invoice / Item</th><th>Date</th><th class="num">Open (${cc})</th><th class="num">Open (AED)</th></tr></thead><tbody>`+
+   s.opens.map(i=>`<tr><td>${i.no}</td><td>${i.date||'—'}</td><td class="num">${fmt(i.amt)}</td><td class="num">${fmt(i.amt_aed)}</td></tr>`).join('')+`</tbody></table>`;
+ } else if(s.has_soa && (s.outstanding_aed||0)>1){
+  inv=`<p class="note">Statement reports a summary balance only (not itemised by invoice).</p>`;
+ }
+ return `<div class="detailinner">${summ}${oc}${bifCards}${chartBlock}${ppline}${inv}
+  <div style="margin-top:12px"><button class="btn print" onclick="event.stopPropagation();printSup('${s.name.replace(/'/g,"\\'")}')">🖨 Print Statement of Account</button></div></div>`;
+}
+function row(s){
+ return `<tr class="suprow" data-cat="${s.category}" data-name="${s.name}" data-out="${(s.outstanding_aed||0)>1?1:0}" onclick="tog(this)">
+  <td><span class="caret">▸</span> ${s.name}</td>
+  <td><span class="cat">${s.category}</span></td>
+  <td class="num">${s.has_soa?fmt(s.invoiced_aed):'—'}</td>
+  <td class="num">${s.has_soa?fmt(s.paid_aed):'—'}</td>
+  <td class="num"><b>${(s.outstanding_aed||0)>0?fmt(s.outstanding_aed):'—'}</b></td>
+  <td>${collectedBar(s)}</td>
+  <td><button class="btn" onclick="event.stopPropagation();printSup('${s.name.replace(/'/g,"\\'")}')">🖨</button></td></tr>
+ <tr class="detail" style="display:none"><td colspan="7">${detail(s)}</td></tr>`;
+}
+let curF='all';
+function render(f){curF=f; resetSupCharts();
+ const L=sup.filter(s=> f==='all'?true : f==='outstanding'?(s.outstanding_aed||0)>1 : s.category===f);
+ document.getElementById('tbody').innerHTML=L.map(row).join('');}
+function tog(tr){tr.classList.toggle('open');const dt=tr.nextElementSibling;const op=dt.style.display==='none';dt.style.display=op?'':'none';
+ if(op){const s=sup.find(x=>x.name===tr.getAttribute('data-name')); if(s) requestAnimationFrame(()=>renderSupChart(s));}}
+render('all');
+document.querySelectorAll('.catbtn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.catbtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');sel.value='__ALL__';render(b.dataset.f);});
+sel.onchange=()=>{const v=sel.value;if(v==='__ALL__'){render(curF);return;}
+ resetSupCharts();
+ document.getElementById('tbody').innerHTML=row(sup.find(s=>s.name===v));
+ const tr=document.querySelector('#tbody tr.suprow');if(tr)tog(tr);
+ document.getElementById('suptable').scrollIntoView({behavior:'smooth'});};
+function printSup(name){
+ const s=sup.find(x=>x.name===name); const L=LEDGERS[name];
+ const cc=L?L.currency:s.currency; const NUM=[2,4,5];
+ let inner='';
+ if(L){
+  const head=L.head.map((h,i)=>`<th>${h}</th>`).join('');
+  const body=L.rows.map(r=>'<tr>'+r.map((c,i)=>{
+     const v=(c===''||c==null)?'':(NUM.includes(i)&&typeof c==='number'?fmt(c):c);
+     const cls=NUM.includes(i)?'num':(i===6?'txt':'');
+     return `<td class="${cls}">${v}</td>`;}).join('')+'</tr>').join('');
+  const bal=L.invoiced-L.paid;
+  const pct=L.invoiced>0?(100*L.paid/L.invoiced).toFixed(1):'0.0';
+  const total=`<tr class="total"><td class="txt">Total - ${cc}</td><td></td><td class="num">${fmt(L.invoiced)}</td><td></td><td class="num">${fmt(L.paid)}</td><td class="num">${fmt(bal)}</td><td></td><td></td></tr>`+
+    `<tr class="pct"><td class="txt" colspan="2">% of Amount paid</td><td class="num">${pct}%</td><td></td><td></td><td class="num">${fmt(bal)}</td><td class="txt">Outstanding</td><td></td></tr>`;
+  let ps='';
+  if(L.payment_summary&&L.payment_summary.length){
+   ps=`<div class="pshead">Payment Summary</div><table style="width:46%"><thead><tr class="vspace"><th colspan="2"></th></tr><tr><th>Date</th><th>Amount</th></tr></thead><tbody>`+
+     L.payment_summary.map(p=>`<tr><td>${p[0]||''}</td><td class="num">${p[1]!=null?fmt(p[1]):''}</td></tr>`).join('')+
+     `<tr class="total"><td class="txt">Total - ${cc}</td><td class="num">${fmt(L.paid)}</td></tr></tbody></table>`;
+  }
+  inner=`<table><thead><tr class="vspace"><th colspan="8"></th></tr><tr>${head}</tr></thead><tbody>${body}${total}</tbody></table>${ps}`;
+ } else {
+  inner=`<p style="color:#555">No Statement of Account on file for this supplier.</p>`;
+ }
+ document.getElementById('printArea').innerHTML=
+  `<div class="soatitle">${s.name}</div>`+
+  `<div class="soasub">Statement of Account as of __ASOF__${cc!=='AED'?' &nbsp;·&nbsp; amounts in '+cc:''}</div>`+
+  inner;
+ const _t=document.title;document.title=s.name;window.print();setTimeout(()=>{document.title=_t;},500);
+}
+document.getElementById('foot').innerHTML=
+ '<b>Source.</b> All figures and printed statements come directly from the supplier-folder Statement of Account files. '+
+ 'Outstanding = invoiced minus paid (or the statement reported balance). '+
+ 'Foreign-currency statements (USD/GBP/EUR) are converted to AED at indicative rates (USD 3.6725, GBP 4.65, EUR 4.00) for the dashboard totals only; printed statements keep the original currency.';
+</script></body></html>

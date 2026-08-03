@@ -1,0 +1,12 @@
+[theme]
+base = "light"
+primaryColor = "#4472C4"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F6FA"
+textColor = "#24303F"
+
+[server]
+port = 8783
+
+[browser]
+gatherUsageStats = false
