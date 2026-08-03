@@ -18,8 +18,17 @@ the G: drive, so nothing extra is needed. `dev_bypass = true` in
 
 ## Deploy to Streamlit Cloud
 
-Repo: `muhammadamirkhan/muraba-supplier-outstanding` (public — no data lives in
-it; everything comes from BC at runtime).
+Repo: `muhammadamirkhan/muraba-supplier-outstanding` — **private**. No financial
+data lives in it (everything comes from BC at runtime), but `mapping.py` exposes
+the supplier roster and internal vendor codes, so it stays closed.
+
+**The app itself is public, which is deliberate.** Streamlit Community Cloud
+allows only one *private app* per user and that slot belongs to `muraba-cashflow`.
+Deploying from a private repo makes the app private by default, so set
+Settings → Sharing → public straight after the first deploy; access is controlled
+by the password gate in `app.py`, not by app visibility. (If Cloud refuses the
+deploy because of the one-private-app rule, flip `muraba-cashflow` public for a
+minute, deploy this one, set it public, then restore.)
 
 There is no G: drive on Cloud, so Secrets must carry both the BC credential and
 the sales-agent figures. App → Settings → Secrets:
