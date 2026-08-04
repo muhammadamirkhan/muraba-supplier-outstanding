@@ -1,6 +1,7 @@
 # Secrets and anything naming individuals or carrying supplier figures.
 .streamlit/secrets.toml
 agents_manual.json
+cloud_secrets.toml
 
 # The original statement-derived dashboard: 128KB of confidential supplier data
 # baked into the file. template.html (placeholders only) is what ships.
