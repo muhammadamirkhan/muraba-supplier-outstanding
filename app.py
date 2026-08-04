@@ -10,11 +10,37 @@ import json
 import pathlib
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 import bc
 import mapping
 import transform
+
+# The dashboard must render inside an iframe: it ships its own CSS and a print
+# stylesheet, both of which would collide with Streamlit's page if inlined.
+# st.components.v1.html is deprecated but is still the only API that takes an
+# HTML *string* -- st.iframe() wants a src URL. Resolve it defensively so a
+# future Streamlit release that drops it degrades instead of crashing.
+try:
+    import streamlit.components.v1 as _components
+
+    _render_iframe = _components.html
+except (ImportError, AttributeError):  # pragma: no cover - version dependent
+    _render_iframe = None
+
+
+def render_dashboard(html: str, height: int = 4300):
+    if _render_iframe is not None:
+        _render_iframe(html, height=height, scrolling=True)
+        return
+    st.warning(
+        "This Streamlit version no longer provides components.v1.html, so the "
+        "dashboard is rendered inline; printing a Statement of Account may pick "
+        "up the surrounding page. Pin an older streamlit in requirements.txt."
+    )
+    try:
+        st.html(html, unsafe_allow_javascript=True)
+    except TypeError:  # older signature without the javascript flag
+        st.html(html)
 
 HERE = pathlib.Path(__file__).parent
 TEMPLATE = HERE / "template.html"
@@ -216,4 +242,4 @@ html = (
         .replace("__LEDGERS_JSON__", json.dumps(LEDGERS, ensure_ascii=False))
         .replace("__ASOF__", asof_txt)
 )
-components.html(html, height=4300, scrolling=True)
+render_dashboard(html)

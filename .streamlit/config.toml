@@ -5,8 +5,11 @@ backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F4F6FA"
 textColor = "#24303F"
 
-[server]
-port = 8783
-
 [browser]
 gatherUsageStats = false
+
+# No [server] port here on purpose. Streamlit Community Cloud serves on 8501 and
+# health-checks http://localhost:8501/healthz; pinning a port in committed config
+# makes the app bind elsewhere and the deploy fails as unhealthy.
+# For local dev pass it on the command line instead:
+#   streamlit run app.py --server.port 8783
