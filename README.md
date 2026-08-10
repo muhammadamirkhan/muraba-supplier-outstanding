@@ -98,6 +98,19 @@ mis-assigned brokers on the generic words "Real Estate" / "Properties".
   `mapping.REVIEW`.
 - **FX is better.** BC's booked rates replace the old hardcoded indicative
   GBP 4.65 / EUR 4.00, which is why Pentagram and RCR shift slightly.
+- **Every BC vendor with a balance appears, not just the curated list.** The
+  register is `mapping.SUPPLIERS` (kept even at zero, to preserve the original
+  view) *plus* any other vendor whose balance is non-zero, added automatically
+  under `mapping.AUTO_CATEGORY` with its BC legal name. Scoping strictly to the
+  curated list originally hid 16 vendors holding AED 327k. Vendors with no
+  balance are not auto-added — that would mean ~700 empty rows. Classify an
+  auto-added vendor via `mapping.EXTRA_CATEGORIES`, or promote it into
+  `SUPPLIERS`. The app lists them under "Auto-added from BC".
+- **Credit balances are shown, in red parentheses.** The original template
+  rendered anything not strictly positive as an em dash, so a supplier we'd
+  overpaid vanished from the Outstanding column, the "has balance" filter and
+  the count. Charts stay positive-only on purpose: both answer "who do we owe",
+  and a doughnut cannot represent a negative.
 - **Invoiced / Paid are scoped to these suppliers' full BC history.** BC holds all
   Muraba AP back to 2013 (645.9M gross across 742 vendors); restricting to the
   dashboard's supplier list gives 261.7M / 213.3M against the statements'

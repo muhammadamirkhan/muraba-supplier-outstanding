@@ -33,6 +33,10 @@ VARIATION_WORDS = ("variation", "addendum", "vo-", "vo ", "v.o", "additional wor
 # Quarters kept on the payment-speed trend chart (original showed 13).
 TREND_QUARTERS = 13
 
+# A vendor outside the curated list joins the register once its balance exceeds
+# this (either direction -- credit balances matter too).
+AUTO_INCLUDE_THRESHOLD = 0.01
+
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -70,13 +74,18 @@ def _plausible(e):
 # ---------------------------------------------------------------------------
 
 def group_entries(vle):
-    """Vendor_No -> entries, restricted to the mapped suppliers, sane dates only."""
-    wanted = set(mapping.vendor_numbers())
+    """Vendor_No -> entries for every vendor in the ledger, sane dates only.
+
+    Deliberately NOT filtered to the mapped suppliers -- doing that hid any
+    vendor outside the curated list that happened to carry a balance. Selection
+    happens in build(), which keeps the curated list plus anyone with a
+    non-zero balance.
+    """
     out = defaultdict(list)
     skipped = []
     for e in vle:
         no = e.get("Vendor_No")
-        if no not in wanted:
+        if not no:
             continue
         if not _plausible(e):
             skipped.append(e)
@@ -348,6 +357,7 @@ def build(vle, invoice_lines=None, agent_earned=None, agent_paid=None):
     """-> (DATA, PERF, LEDGERS, diagnostics)"""
     grouped, skipped = group_entries(vle)
     names = {no: name for no, (name, _c) in mapping.by_vendor_no().items()}
+    mapped_nos = set(mapping.vendor_numbers())
 
     descriptions = {}
     for ln in (invoice_lines or []):
@@ -375,6 +385,33 @@ def build(vle, invoice_lines=None, agent_earned=None, agent_paid=None):
         if entries:
             LEDGERS[name] = build_ledger(entries, descriptions, ccy)
 
+    # Any other BC vendor carrying a balance. Without this, a vendor outside the
+    # curated list simply never appears, however much it owes.
+    auto_added = []
+    for no, entries in grouped.items():
+        if no in mapped_nos or not entries:
+            continue
+        m = _money(entries)
+        if abs(m["outstanding_aed"]) <= AUTO_INCLUDE_THRESHOLD:
+            continue
+        name = next((e.get("Vendor_Name") or "").strip() for e in reversed(entries)
+                    if (e.get("Vendor_Name") or "").strip())
+        if not name or name in DATA:
+            name = f"{name or 'Unknown vendor'} ({no})"
+        ccy = _currency(entries)
+        DATA[name] = {
+            "name": name,
+            "category": mapping.category_for(no),
+            "currency": ccy,
+            "has_soa": True,
+            **{k: round(v, 2) for k, v in m.items()},
+            "breakdown": _breakdown(name, entries, descriptions, ccy),
+            "opens": _opens(entries),
+            "master_aed": None,
+        }
+        LEDGERS[name] = build_ledger(entries, descriptions, ccy)
+        auto_added.append((no, name, round(m["outstanding_aed"], 2)))
+
     # in-house sales agents: paid from GL 21014, earned from the manual file
     agent_earned = agent_earned or {}
     agent_paid = agent_paid or {}
@@ -399,11 +436,15 @@ def build(vle, invoice_lines=None, agent_earned=None, agent_paid=None):
     PERF = build_perf(grouped, names)
 
     diagnostics = {
-        "entries_used": sum(len(v) for v in grouped.values()),
+        "entries_used": sum(len(grouped.get(no, [])) for no in mapped_nos)
+        + sum(len(grouped.get(no, [])) for no, _n, _o in auto_added),
         "entries_total": len(vle),
         "bad_date_entries": len(skipped),
         "suppliers": len(DATA),
-        "vendors_matched": len(grouped),
+        "vendors_in_ledger": len(grouped),
+        "vendors_matched": len([no for no in mapped_nos if no in grouped]),
+        "auto_added": sorted(auto_added, key=lambda x: -abs(x[2])),
+        "auto_added_total": round(sum(o for _no, _n, o in auto_added), 2),
         "vendors_missing": [n for n, (no, _c) in mapping.SUPPLIERS.items() if no not in grouped],
         "open_items": sum(len(v["opens"]) for v in DATA.values()),
         "descriptions": len(descriptions),

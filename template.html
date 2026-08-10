@@ -65,6 +65,7 @@ tr.suprow:hover{background:var(--soft)}
 select{background:#fff;color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-size:13px;min-width:240px}
 label.sl{color:var(--mut);font-size:12px;font-weight:600}
 .tag{font-size:10px;color:var(--mut)}
+.cred{color:#e35d6a}
 .foot{color:var(--mut);font-size:11px;margin-top:20px;line-height:1.6}
 .ppkpis{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:4px}
 .ppk{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:10px 16px;min-width:150px}
@@ -177,7 +178,7 @@ function renderSupChart(s){
 const totOut=sup.reduce((s,x)=>s+(x.outstanding_aed||0),0);
 const totInv=sup.reduce((s,x)=>s+(x.has_soa?(x.invoiced_aed||0):0),0);
 const totPaid=sup.reduce((s,x)=>s+(x.has_soa?(x.paid_aed||0):0),0);
-const withOut=sup.filter(s=>(s.outstanding_aed||0)>1).length;
+const withOut=sup.filter(s=>Math.abs(s.outstanding_aed||0)>1).length;
 const collected=totInv>0?100*totPaid/totInv:0;
 document.getElementById('kpis').innerHTML=[
  ['Total Outstanding',fmt(totOut),withOut+' suppliers with a balance',true],
@@ -221,7 +222,7 @@ new Chart(document.getElementById('trendChart'),{type:'bar',
   scales:{x:{ticks:{color:C('--mut'),font:{size:9},maxRotation:50,minRotation:45},grid:{display:false}},y:{ticks:{color:C('--mut'),callback:v=>v+'d'},grid:{color:C('--line')}}}}});
 
 const sel=document.getElementById('supSelect');
-sup.forEach(s=>{const o=document.createElement('option');o.value=s.name;o.textContent=s.name+((s.outstanding_aed||0)>1?'  ·  '+fmt(s.outstanding_aed)+' AED':'');sel.appendChild(o);});
+sup.forEach(s=>{const o=document.createElement('option');o.value=s.name;o.textContent=s.name+(Math.abs(s.outstanding_aed||0)>1?'  ·  '+(s.outstanding_aed<0?'('+fmt(-s.outstanding_aed)+')':fmt(s.outstanding_aed))+' AED':'');sel.appendChild(o);});
 function collectedBar(s){
  if(!s.has_soa||!(s.invoiced_aed>0)) return '<span class="tag">—</span>';
  const p=Math.min(100,100*s.paid_aed/s.invoiced_aed), du=Math.max(0,100-p);
@@ -253,26 +254,26 @@ function detail(s){
  if(s.opens&&s.opens.length){
   inv=`<table class="itab"><thead><tr><th>Invoice / Item</th><th>Date</th><th class="num">Open (${cc})</th><th class="num">Open (AED)</th></tr></thead><tbody>`+
    s.opens.map(i=>`<tr><td>${i.no}</td><td>${i.date||'—'}</td><td class="num">${fmt(i.amt)}</td><td class="num">${fmt(i.amt_aed)}</td></tr>`).join('')+`</tbody></table>`;
- } else if(s.has_soa && (s.outstanding_aed||0)>1){
+ } else if(s.has_soa && Math.abs(s.outstanding_aed||0)>1){
   inv=`<p class="note">Statement reports a summary balance only (not itemised by invoice).</p>`;
  }
  return `<div class="detailinner">${summ}${oc}${bifCards}${chartBlock}${ppline}${inv}
   <div style="margin-top:12px"><button class="btn print" onclick="event.stopPropagation();printSup('${s.name.replace(/'/g,"\\'")}')">🖨 Print Statement of Account</button></div></div>`;
 }
 function row(s){
- return `<tr class="suprow" data-cat="${s.category}" data-name="${s.name}" data-out="${(s.outstanding_aed||0)>1?1:0}" onclick="tog(this)">
+ return `<tr class="suprow" data-cat="${s.category}" data-name="${s.name}" data-out="${Math.abs(s.outstanding_aed||0)>1?1:0}" onclick="tog(this)">
   <td><span class="caret">▸</span> ${s.name}</td>
   <td><span class="cat">${s.category}</span></td>
   <td class="num">${s.has_soa?fmt(s.invoiced_aed):'—'}</td>
   <td class="num">${s.has_soa?fmt(s.paid_aed):'—'}</td>
-  <td class="num"><b>${(s.outstanding_aed||0)>0?fmt(s.outstanding_aed):'—'}</b></td>
+  <td class="num"><b>${Math.abs(s.outstanding_aed||0)>0.01?(s.outstanding_aed<0?'<span class="cred">('+fmt(-s.outstanding_aed)+')</span>':fmt(s.outstanding_aed)):'—'}</b></td>
   <td>${collectedBar(s)}</td>
   <td><button class="btn" onclick="event.stopPropagation();printSup('${s.name.replace(/'/g,"\\'")}')">🖨</button></td></tr>
  <tr class="detail" style="display:none"><td colspan="7">${detail(s)}</td></tr>`;
 }
 let curF='all';
 function render(f){curF=f; resetSupCharts();
- const L=sup.filter(s=> f==='all'?true : f==='outstanding'?(s.outstanding_aed||0)>1 : s.category===f);
+ const L=sup.filter(s=> f==='all'?true : f==='outstanding'?Math.abs(s.outstanding_aed||0)>1 : s.category===f);
  document.getElementById('tbody').innerHTML=L.map(row).join('');}
 function tog(tr){tr.classList.toggle('open');const dt=tr.nextElementSibling;const op=dt.style.display==='none';dt.style.display=op?'':'none';
  if(op){const s=sup.find(x=>x.name===tr.getAttribute('data-name')); if(s) requestAnimationFrame(()=>renderSupChart(s));}}

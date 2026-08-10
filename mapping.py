@@ -85,6 +85,32 @@ SALES_AGENTS = {
 AGENT_CATEGORY = "Sales Agent"
 GL_INHOUSE_COMMISSION = "21014"
 
+# --------------------------------------------------------------------------
+# Auto-inclusion
+#
+# SUPPLIERS above is the list carried over from the original statement-based
+# dashboard. BC has ~745 vendors, so scoping to that list silently hid every
+# other vendor that happens to carry a balance -- the client spotted 16 of them
+# (AED 327k) missing. Any BC vendor with a non-zero balance is now added
+# automatically under AUTO_CATEGORY, using its BC legal name.
+#
+# Vendors with no balance are NOT auto-added; that would put ~700 empty rows in
+# the register. So the register = the curated list (even at zero, to preserve
+# the original view) + anyone else who actually owes or is owed something.
+#
+# To classify an auto-added vendor properly, add it to EXTRA_CATEGORIES; to
+# promote it permanently, move it into SUPPLIERS above.
+# --------------------------------------------------------------------------
+AUTO_CATEGORY = "Other"
+
+EXTRA_CATEGORIES = {
+    # "VLLC0433": "Professional Services",
+}
+
+
+def category_for(vendor_no, default=None):
+    return EXTRA_CATEGORIES.get(vendor_no, default or AUTO_CATEGORY)
+
 # Dropped from the original 54: "Flint Culture MENA" was a duplicate of
 # "Flint Culture MENA Marketing" (both resolve to VLLC0388) and had no
 # statement on file.

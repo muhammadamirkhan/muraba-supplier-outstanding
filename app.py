@@ -185,7 +185,7 @@ with c4:
     st.caption(f"**Total outstanding** AED {diag['total_outstanding']:,.0f}")
 asof_txt = asof.strftime("%d %B %Y")
 
-n1, n2, n3 = st.columns(3)
+n1, n2, n3, n4 = st.columns(4)
 with n1.expander("Data notes"):
     st.markdown(
         f"""
@@ -203,8 +203,22 @@ with n1.expander("Data notes"):
 """
     )
 
+auto = diag.get("auto_added", [])
+with n2.expander(f"➕ Auto-added from BC ({len(auto)})"):
+    if not auto:
+        st.caption("Every BC vendor carrying a balance is on the curated list.")
+    else:
+        st.caption(
+            f"Vendors outside the original supplier list that carry a balance — "
+            f"AED {diag['auto_added_total']:,.0f} in total. They're included "
+            f'automatically under "{mapping.AUTO_CATEGORY}"; add them to '
+            f"`EXTRA_CATEGORIES` in mapping.py to classify them properly."
+        )
+        for no, nm, out in auto:
+            st.markdown(f"- `{no}` **{nm}** — {out:,.0f}")
+
 flagged = [n for n in mapping.REVIEW if n in DATA]
-with n2.expander(f"⚠ Needs review ({len(flagged)})"):
+with n3.expander(f"⚠ Needs review ({len(flagged)})"):
     for n in flagged:
         st.markdown(f"**{n}** — {mapping.REVIEW[n]}")
     if diag["vendors_missing"]:
@@ -216,7 +230,7 @@ with n2.expander(f"⚠ Needs review ({len(flagged)})"):
         for k, why in mapping.DROPPED.items():
             st.markdown(f"**{k}** — dropped, {why}")
 
-with n3.expander("Sales agents (manual)"):
+with n4.expander("Sales agents (manual)"):
     st.caption(
         f"Not BC vendors. Figures read from **{agent_src}**; GL "
         f"{mapping.GL_INHOUSE_COMMISSION} attribution is shown only as a cross-check "
