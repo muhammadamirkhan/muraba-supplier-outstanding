@@ -49,25 +49,8 @@ AGENTS_FILE = HERE / "agents_manual.json"
 st.set_page_config(page_title="Supplier Outstanding", page_icon="🏗", layout="wide")
 
 
-# ---------------------------------------------------------------- password gate
-def gate():
-    if st.secrets.get("dev_bypass", False):
-        return True
-    if st.session_state.get("ok"):
-        return True
-    st.title("Supplier Outstanding")
-    st.caption("Muraba · Accounts Payable")
-    pw = st.text_input("Password", type="password")
-    if pw:
-        if pw == st.secrets.get("password", ""):
-            st.session_state["ok"] = True
-            st.rerun()
-        else:
-            st.error("Incorrect password.")
-    st.stop()
-
-
-gate()
+# Entry password removed: access is controlled by the Muraba Veil Apps
+# landing page. Per-action passwords guarding writes are kept.
 
 
 # ------------------------------------------------------------------ data layer
