@@ -37,6 +37,11 @@ TREND_QUARTERS = 13
 # this (either direction -- credit balances matter too).
 AUTO_INCLUDE_THRESHOLD = 0.01
 
+# Curated suppliers with no BC activity at all are hidden rather than rendered as
+# a row of dashes. A fully-settled supplier (invoiced == paid, nothing
+# outstanding) still has values and stays -- "empty" means nothing to show.
+DROP_EMPTY_SUPPLIERS = True
+
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -368,10 +373,16 @@ def build(vle, invoice_lines=None, agent_earned=None, agent_paid=None):
                 descriptions[doc] = d
 
     DATA, LEDGERS = {}, {}
+    dropped_empty = []
     for name, (no, cat) in mapping.SUPPLIERS.items():
         entries = grouped.get(no, [])
         ccy = _currency(entries)
         m = _money(entries)
+        if DROP_EMPTY_SUPPLIERS and all(
+            abs(m[k]) < 1 for k in ("invoiced_aed", "paid_aed", "outstanding_aed")
+        ):
+            dropped_empty.append(name)
+            continue
         DATA[name] = {
             "name": name,
             "category": cat,
@@ -446,6 +457,7 @@ def build(vle, invoice_lines=None, agent_earned=None, agent_paid=None):
         "auto_added": sorted(auto_added, key=lambda x: -abs(x[2])),
         "auto_added_total": round(sum(o for _no, _n, o in auto_added), 2),
         "vendors_missing": [n for n, (no, _c) in mapping.SUPPLIERS.items() if no not in grouped],
+        "dropped_empty": sorted(dropped_empty),
         "open_items": sum(len(v["opens"]) for v in DATA.values()),
         "descriptions": len(descriptions),
         "total_outstanding": round(sum(v["outstanding_aed"] or 0 for v in DATA.values()), 2),

@@ -129,9 +129,7 @@ label.sl{color:var(--mut);font-size:12px;font-weight:600}
 <span style="flex:1"></span>
 <button class="catbtn active" data-f="all">All</button>
 <button class="catbtn" data-f="outstanding">Has balance</button>
-<button class="catbtn" data-f="Construction">Construction</button>
-<button class="catbtn" data-f="Project Management">Project Mgmt</button>
-<button class="catbtn" data-f="Marketing">Marketing</button>
+<span id="catbtns"></span>
 </div>
 <table id="suptable"><thead><tr>
 <th>Supplier</th><th>Category</th><th class="num">Invoiced</th><th class="num">Paid</th>
@@ -277,6 +275,15 @@ function render(f){curF=f; resetSupCharts();
  document.getElementById('tbody').innerHTML=L.map(row).join('');}
 function tog(tr){tr.classList.toggle('open');const dt=tr.nextElementSibling;const op=dt.style.display==='none';dt.style.display=op?'':'none';
  if(op){const s=sup.find(x=>x.name===tr.getAttribute('data-name')); if(s) requestAnimationFrame(()=>renderSupChart(s));}}
+// Category buttons are built from the data: tags change (and new ones appear via
+// auto-inclusion), so a hardcoded list silently leaves categories unfilterable.
+const ABBR={'Project Management':'Project Mgmt','Community / Service Charges':'Service Charges',
+            'Real Estate Brokerage':'Brokerage','Fit-out / Supply':'Fit-out'};
+const catCount={}; sup.forEach(s=>{catCount[s.category]=(catCount[s.category]||0)+1;});
+document.getElementById('catbtns').innerHTML=Object.keys(catCount)
+  .sort((a,b)=>catCount[b]-catCount[a]||a.localeCompare(b))
+  .map(c=>`<button class="catbtn" data-f="${c}">${ABBR[c]||c} <span style="opacity:.6">${catCount[c]}</span></button>`)
+  .join('');
 render('all');
 document.querySelectorAll('.catbtn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.catbtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');sel.value='__ALL__';render(b.dataset.f);});
 sel.onchange=()=>{const v=sel.value;if(v==='__ALL__'){render(curF);return;}
