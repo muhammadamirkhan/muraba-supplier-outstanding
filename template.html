@@ -235,15 +235,7 @@ function detail(s){
    ${cc!=='AED'?`<div class="sumcard"><div class="l">Balance (AED)</div><div class="v">${fmt(s.outstanding_aed)}</div></div>`:''}
   </div>`:`<p class="note">No Statement of Account on file for this supplier.</p>`;
  const bd=s.breakdown;
- let bifCards='';
- if(bd&&bd.bifurcate){
-  bifCards=`<div class="sumcards biff">
-   <div class="sumcard con"><div class="l">Contract — Invoiced</div><div class="v">${fmt(bd.con.inv)} <span class="tag">${cc}</span></div></div>
-   <div class="sumcard con"><div class="l">Contract — Balance</div><div class="v">${fmt(bd.con.out)} <span class="tag">${cc}</span></div></div>
-   <div class="sumcard var"><div class="l">Variation — Invoiced</div><div class="v">${fmt(bd.var.inv)} <span class="tag">${cc}</span></div></div>
-   <div class="sumcard var"><div class="l">Variation — Balance</div><div class="v">${fmt(bd.var.out)} <span class="tag">${cc}</span></div></div>
-  </div>`;
- }
+ const bifCards='';  // Contract/Variation split removed: no BC source for it
  let chartBlock=s.has_soa?`<div class="supviz"><div class="ppsub">Invoiced &middot; Paid &middot; Balance Pending${(bd&&bd.bifurcate)?' — split by Contract vs Variation':''}</div>
    <div class="chartbox" style="height:230px"><canvas id="supchart_${SIDX[s.name]}"></canvas></div></div>`:'';
  const pp=PERF.by_supplier[s.name];

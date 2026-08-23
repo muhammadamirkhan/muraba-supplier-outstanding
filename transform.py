@@ -21,13 +21,16 @@ from collections import defaultdict
 
 import mapping
 
-# The original dashboard split these suppliers into Contract vs Variation. BC has
-# no such classification, so it is inferred from invoice-line text and flagged in
-# the UI as inferred. Empty this set to switch the split off entirely.
-BIFURCATE_SUPPLIERS = {
-    "Arup Gulf Limited", "WSP Middle East", "Zetas Zemin",
-    "BeWunder", "TrafQuest", "Joseph Graphics",
-}
+# Contract vs Variation: REMOVED at the client's request.
+#
+# The original statement-based dashboard carried this split because the SOA
+# documents stated it. BC has no equivalent field, so the rebuild inferred it by
+# keyword-matching invoice descriptions -- which produced authoritative-looking
+# figures from a guess. Better to show nothing than a number nobody can trace.
+#
+# Re-enable only if a real source appears (a BC dimension, or a flag on the
+# invoice line): put supplier names back in this set and the split returns.
+BIFURCATE_SUPPLIERS = set()
 VARIATION_WORDS = ("variation", "addendum", "vo-", "vo ", "v.o", "additional works")
 
 # Quarters kept on the payment-speed trend chart (original showed 13).

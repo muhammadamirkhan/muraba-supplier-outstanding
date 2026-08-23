@@ -178,7 +178,6 @@ with n1.expander("Data notes"):
 - **Payment speed is estimated** (FIFO): BC doesn't publish which payment settled
   which invoice. Ask the BC admin to expose `Closed_at_Date` and
   `Closed_by_Entry_No` for exact figures.
-- **Contract vs Variation** is inferred from invoice text, not a BC field.
 - **Sales agents** aren't BC vendors — both earned and paid come from
   `agents_manual.json` (Finance's Inhouse Com sheet).
 - FX uses BC's booked rates, not the old indicative GBP 4.65 / EUR 4.00.

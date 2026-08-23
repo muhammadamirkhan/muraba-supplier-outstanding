@@ -125,9 +125,12 @@ mis-assigned brokers on the generic words "Real Estate" / "Properties".
   Entries, table 380) and replace `transform._fifo_pairs` with the real link.
   Figures moved from 69d/64% on-time to 93d/56% because the scope is now all
   history rather than 9 suppliers.
-- **Contract vs Variation is inferred** from invoice-line text
-  (`transform.VARIATION_WORDS`), not a BC field. Suppliers with no variation text
-  fall back to the plain view. Empty `BIFURCATE_SUPPLIERS` to switch it off.
+- **Contract vs Variation was removed.** The original statement-based dashboard
+  carried the split because the SOA documents stated it; BC has no equivalent
+  field, so the rebuild inferred it by keyword-matching invoice descriptions.
+  That produced authoritative-looking figures from a guess, so it is gone.
+  `BIFURCATE_SUPPLIERS` is now empty -- put supplier names back only if a real
+  source appears (a BC dimension, or a flag on the invoice line).
 - **Sales agents are manual.** Abhilash, Eoghan and Marius are staff, not vendors:
   BC never sees an invoice from them. GL 21014 holds commission *paid* but has no
   agent dimension (only 7 of 99 postings can be attributed by name), and
