@@ -5,8 +5,18 @@ on name: BC uses legal names ("Zetas Zemin Teknolojisi A.S Dubai Branch") and
 carries typos ("XOXO Real Esatate", "Geoestate" vs "Geostate"), so every fuzzy
 matcher tried mis-assigned brokers on the generic words "Real Estate"/"Properties".
 
-CATEGORY is Muraba's own grouping and has no BC equivalent -- kept as-is from
-the original dashboard. New vendors default to "Other".
+CATEGORY is Muraba's own grouping. BC has no category field on the vendor, but
+the books do reveal it: purchase invoice lines carry the G/L account, and
+Muraba's chart of accounts has a project cost line per category --
+
+    21011 Legal & Admin        21012 Marketing Cost      21013 Design & Supervision
+    21014 Sales Commission     21016 Construction        21017 Service Charges
+    21018 Project Management   21020 DWTC Sales Gallery Fitout
+
+Tags below were audited against each supplier's dominant project account. Ignore
+24810 (Project cost CWIP), 22300 (Prepaid) and 51300 (Accrued) when judging --
+those are balance-sheet mechanics, not cost categories. New vendors default to
+"Other".
 
 REVIEW flags a row whose BC balance disagrees with the original statement; see
 the notes at the bottom.
@@ -14,22 +24,27 @@ the notes at the bottom.
 
 # dashboard name -> (BC Vendor_No, category)
 SUPPLIERS = {
+    # ---- Design & Supervision ----------------------------------------------
+    # These four bill overwhelmingly to G/L 21013 "Design & Supervision - Muraba
+    # Veil" (Omnium 100%, Arup 77%, RCR 68%, WSP 60%), which is a separate cost
+    # line from Project Management in Muraba's own chart of accounts.
+    "WSP Middle East":            ("VLLC0393", "Design & Supervision"),
+    "Arup Gulf Limited":          ("VLLC0366", "Design & Supervision"),
+    "RCR Arquitectes":            ("VLLC0253", "Design & Supervision"),
+    "Omnium International":       ("VLLC0479", "Design & Supervision"),
     # ---- Project Management -------------------------------------------------
-    "WSP Middle East":            ("VLLC0393", "Project Management"),
-    "Arup Gulf Limited":          ("VLLC0366", "Project Management"),
-    "RCR Arquitectes":            ("VLLC0253", "Project Management"),
-    "Omnium International":       ("VLLC0479", "Project Management"),
+    # TrafQuest bills 64% to G/L 21018 "Project Management Cost - Muraba Veil".
     "TrafQuest":                  ("VLLC0358", "Project Management"),
     # ---- Construction ------------------------------------------------------
     "Zetas Zemin":                ("VLLC0485", "Construction"),
     "RNS Technical Services":     ("VLLC0446", "Construction"),
     "BAUER International":        ("VLLC0421", "Construction"),
-    "Electra Marquees":           ("VLLC0396", "Marketing"),
     "Electra Exhibitions":        ("VLLC0460", "Construction"),
     "Enjay Engineering":          ("VLLC0119", "Construction"),
     "Titans MEP Contracting":     ("VLLC0405", "Construction"),
     "Geostate Survey Services":   ("VLLC0497", "Legal"),
     # ---- Marketing ---------------------------------------------------------
+    "Electra Marquees":           ("VLLC0396", "Marketing"),
     "Pentagram":                  ("VLLC0360", "Marketing"),
     "Bureau of Visual Affairs":   ("VLLC0462", "Marketing"),
     "Zaina International":        ("VLLC0313", "Marketing"),
