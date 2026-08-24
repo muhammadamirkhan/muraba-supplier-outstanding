@@ -361,11 +361,39 @@ def build_ledger(entries, descriptions, currency):
 # entry point
 # ---------------------------------------------------------------------------
 
-def build(vle, invoice_lines=None, agent_earned=None, agent_paid=None):
-    """-> (DATA, PERF, LEDGERS, diagnostics)"""
+def _vendor_spend_by_account(invoice_lines):
+    """Vendor_No -> {account_no: signed amount} from posted purchase invoice lines."""
+    spend = defaultdict(lambda: defaultdict(float))
+    for l in invoice_lines or []:
+        v = l.get("Buy_from_Vendor_No")
+        if v and (l.get("Type") or "").strip() == "G/L Account" and l.get("No"):
+            spend[v][l["No"]] += l.get("Amount") or 0
+    return spend
+
+
+def _derive_category(accounts, coa):
+    """Category = cleaned name of the vendor's dominant cost account.
+
+    Mechanics accounts (CWIP, advances, prepaid, accruals) are skipped first;
+    if the vendor posts ONLY to those, the mechanics account itself is used --
+    still a BC fact, never an invented label. No accounts at all -> Uncategorised.
+    """
+    if not accounts:
+        return mapping.UNCATEGORISED, None
+    ranked = sorted(accounts.items(), key=lambda x: -abs(x[1]))
+    real = [(a, amt) for a, amt in ranked if a not in mapping.MECHANICS_ACCOUNTS]
+    acct_no = (real or ranked)[0][0]
+    return mapping.clean_category(coa.get(acct_no)), acct_no
+
+
+def build(vle, invoice_lines=None, coa=None):
+    """-> (DATA, PERF, LEDGERS, diagnostics). Everything from BC.
+
+    Register = every vendor in the ledger with non-zero money. The reference
+    HTML contributes layout only.
+    """
+    coa = coa or {}
     grouped, skipped = group_entries(vle)
-    names = {no: name for no, (name, _c) in mapping.by_vendor_no().items()}
-    mapped_nos = set(mapping.vendor_numbers())
 
     descriptions = {}
     for ln in (invoice_lines or []):
@@ -375,47 +403,33 @@ def build(vle, invoice_lines=None, agent_earned=None, agent_paid=None):
             if d:
                 descriptions[doc] = d
 
+    spend = _vendor_spend_by_account(invoice_lines)
+
     DATA, LEDGERS = {}, {}
-    dropped_empty = []
-    for name, (no, cat) in mapping.SUPPLIERS.items():
-        entries = grouped.get(no, [])
-        ccy = _currency(entries)
+    names, uncategorised, overridden = {}, [], []
+    for no, entries in grouped.items():
         m = _money(entries)
-        if DROP_EMPTY_SUPPLIERS and all(
-            abs(m[k]) < 1 for k in ("invoiced_aed", "paid_aed", "outstanding_aed")
-        ):
-            dropped_empty.append(name)
-            continue
+        if all(abs(m[k]) < 1 for k in ("invoiced_aed", "paid_aed", "outstanding_aed")):
+            continue  # nothing to show
+
+        name = next((( e.get("Vendor_Name") or "").strip() for e in reversed(entries)
+                     if (e.get("Vendor_Name") or "").strip()), "") or f"Vendor {no}"
+        if name in DATA:  # two BC vendor cards sharing one name stay distinct
+            name = f"{name} ({no})"
+        names[no] = name
+
+        if no in mapping.CLIENT_CATEGORY_OVERRIDES:
+            cat = mapping.CLIENT_CATEGORY_OVERRIDES[no]
+            overridden.append((no, name, cat))
+        else:
+            cat, acct_no = _derive_category(spend.get(no, {}), coa)
+            if cat == mapping.UNCATEGORISED:
+                uncategorised.append((no, name, round(m["outstanding_aed"], 2)))
+
+        ccy = _currency(entries)
         DATA[name] = {
             "name": name,
             "category": cat,
-            "currency": ccy,
-            "has_soa": bool(entries),
-            **{k: round(v, 2) for k, v in m.items()},
-            "breakdown": _breakdown(name, entries, descriptions, ccy),
-            "opens": _opens(entries),
-            "master_aed": None,
-        }
-        if entries:
-            LEDGERS[name] = build_ledger(entries, descriptions, ccy)
-
-    # Any other BC vendor carrying a balance. Without this, a vendor outside the
-    # curated list simply never appears, however much it owes.
-    auto_added = []
-    for no, entries in grouped.items():
-        if no in mapped_nos or not entries:
-            continue
-        m = _money(entries)
-        if abs(m["outstanding_aed"]) <= AUTO_INCLUDE_THRESHOLD:
-            continue
-        name = next((e.get("Vendor_Name") or "").strip() for e in reversed(entries)
-                    if (e.get("Vendor_Name") or "").strip())
-        if not name or name in DATA:
-            name = f"{name or 'Unknown vendor'} ({no})"
-        ccy = _currency(entries)
-        DATA[name] = {
-            "name": name,
-            "category": mapping.category_for(no),
             "currency": ccy,
             "has_soa": True,
             **{k: round(v, 2) for k, v in m.items()},
@@ -424,43 +438,18 @@ def build(vle, invoice_lines=None, agent_earned=None, agent_paid=None):
             "master_aed": None,
         }
         LEDGERS[name] = build_ledger(entries, descriptions, ccy)
-        auto_added.append((no, name, round(m["outstanding_aed"], 2)))
 
-    # in-house sales agents: paid from GL 21014, earned from the manual file
-    agent_earned = agent_earned or {}
-    agent_paid = agent_paid or {}
-    for dash_name, short in mapping.SALES_AGENTS.items():
-        paid = float(agent_paid.get(short, 0.0))
-        earned = float(agent_earned.get(short, 0.0))
-        DATA[dash_name] = {
-            "name": dash_name,
-            "category": mapping.AGENT_CATEGORY,
-            "currency": "AED",
-            "has_soa": bool(earned or paid),
-            "invoiced_orig": round(earned, 2), "paid_orig": round(paid, 2),
-            "outstanding_orig": round(earned - paid, 2),
-            "invoiced_aed": round(earned, 2), "paid_aed": round(paid, 2),
-            "outstanding_aed": round(earned - paid, 2),
-            "breakdown": {"con": {"inv": 0.0, "out": 0.0, "paid": 0.0},
-                          "var": {"inv": 0.0, "out": 0.0, "paid": 0.0},
-                          "bifurcate": False, "currency": "AED"},
-            "opens": [], "master_aed": None,
-        }
-
-    PERF = build_perf(grouped, names)
+    PERF = build_perf({no: grouped[no] for no in names}, names)
 
     diagnostics = {
-        "entries_used": sum(len(grouped.get(no, [])) for no in mapped_nos)
-        + sum(len(grouped.get(no, [])) for no, _n, _o in auto_added),
         "entries_total": len(vle),
+        "entries_used": sum(len(grouped[no]) for no in names),
         "bad_date_entries": len(skipped),
-        "suppliers": len(DATA),
         "vendors_in_ledger": len(grouped),
-        "vendors_matched": len([no for no in mapped_nos if no in grouped]),
-        "auto_added": sorted(auto_added, key=lambda x: -abs(x[2])),
-        "auto_added_total": round(sum(o for _no, _n, o in auto_added), 2),
-        "vendors_missing": [n for n, (no, _c) in mapping.SUPPLIERS.items() if no not in grouped],
-        "dropped_empty": sorted(dropped_empty),
+        "vendors_shown": len(DATA),
+        "uncategorised": sorted(uncategorised, key=lambda x: -abs(x[2])),
+        "client_overrides": overridden,
+        "categories": sorted({v["category"] for v in DATA.values()}),
         "open_items": sum(len(v["opens"]) for v in DATA.values()),
         "descriptions": len(descriptions),
         "total_outstanding": round(sum(v["outstanding_aed"] or 0 for v in DATA.values()), 2),

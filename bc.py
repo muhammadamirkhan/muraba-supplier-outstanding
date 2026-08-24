@@ -148,3 +148,9 @@ def health(token=None):
         timeout=30,
     )
     return r.status_code == 200
+
+
+def chart_of_accounts(token=None):
+    """G/L account No -> Name. Categories are derived from these names."""
+    rows = fetch_all(f"ODataV4/{COMPANY}/Chart_of_Accounts", token)
+    return {r.get("No"): (r.get("Name") or "").strip() for r in rows if r.get("No")}

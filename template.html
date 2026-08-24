@@ -274,6 +274,7 @@ const ABBR={'Project Management':'Project Mgmt','Community / Service Charges':'S
 const catCount={}; sup.forEach(s=>{catCount[s.category]=(catCount[s.category]||0)+1;});
 document.getElementById('catbtns').innerHTML=Object.keys(catCount)
   .sort((a,b)=>catCount[b]-catCount[a]||a.localeCompare(b))
+  .slice(0,12)  // top categories only; every row still carries its true category
   .map(c=>`<button class="catbtn" data-f="${c}">${ABBR[c]||c} <span style="opacity:.6">${catCount[c]}</span></button>`)
   .join('');
 render('all');
