@@ -3,6 +3,11 @@
 agents_manual.json
 cloud_secrets.toml
 
+# Generated snapshot of live BC data -- vendor names + amounts. Regenerate
+# with `python tools/export_categories.py` rather than committing a copy
+# that goes stale.
+supplier_categories.csv
+
 # The original statement-derived dashboard: 128KB of confidential supplier data
 # baked into the file. template.html (placeholders only) is what ships.
 Supplier_Dashboard.html

@@ -61,3 +61,17 @@ only `bc_client_secret`. The old `[agents]` block is no longer read.
 Files: `app.py` (shell + panels), `bc.py` (OAuth + OData reads, read-only),
 `transform.py` (all money/category rules), `mapping.py` (BC reading rules +
 client instructions), `template.html` (layout).
+
+## Tools
+
+`tools/` holds read-only scripts for verifying the dashboard against BC —
+health check, per-supplier tag audit trail, raw ledger dump, the category CSV
+export, and a pre-push pipeline test. See `tools/README.md`.
+
+## Everything Suppliers-related lives in this folder
+
+App (`app.py`, `bc.py`, `transform.py`, `mapping.py`, `template.html`),
+verification tools (`tools/`), the category export (`supplier_categories.csv`),
+Cloud secrets (`cloud_secrets.toml`, gitignored), and the original reference
+dashboard (`Supplier_Dashboard.html`, gitignored — kept for layout reference
+only; no value on the live page comes from it).
