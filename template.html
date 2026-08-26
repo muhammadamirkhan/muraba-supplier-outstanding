@@ -69,26 +69,31 @@ label.sl{color:var(--mut);font-size:12px;font-weight:600}
 .srcbtn{border:1px solid #C9D4E6;background:#fff;color:#2E5AAC;border-radius:8px;
         padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
 .srcbtn:hover{background:#F2F6FC}
+/* The dashboard lives in a tall iframe, so the overlay's viewport is the whole
+   page, not the screen: vh units and vertical centring would drop the box far
+   below the fold. Anchor it just under the header (where the button is) and cap
+   the height in pixels, with the body scrolling inside. */
 .srcwrap{position:fixed;inset:0;background:rgba(16,26,44,.55);z-index:999;display:none;
-         overflow:auto;padding:34px 18px}
-.srcwrap.on{display:block}
-.srcbox{max-width:1120px;margin:0 auto;background:#fff;border-radius:14px;
-        box-shadow:0 24px 60px rgba(16,26,44,.34)}
+         justify-content:center;align-items:flex-start;padding:26px 18px}
+.srcwrap.on{display:flex}
+.srcbox{width:100%;max-width:860px;max-height:600px;background:#fff;border-radius:14px;
+        box-shadow:0 24px 60px rgba(16,26,44,.34);display:flex;flex-direction:column;
+        overflow:hidden}
 .srchead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
-         padding:20px 26px;border-bottom:1px solid #E3E8F0}
-.srchead h2{margin:0;font-size:18px;color:#16223A}
-.srchead .sub{font-size:12.5px;color:#6B7891;margin-top:5px;max-width:830px;line-height:1.55}
-.srcclose{border:0;background:#F2F5FA;border-radius:8px;width:32px;height:32px;
-          font-size:17px;cursor:pointer;color:#44506A;flex:none}
-.srcbody{padding:8px 26px 26px}
-.srcbody h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8792A8;
-            margin:22px 0 8px}
-table.srctab{width:100%;border-collapse:collapse;font-size:12.5px}
-table.srctab th{text-align:left;background:#F4F7FC;color:#44506A;font-size:11px;
-                letter-spacing:.05em;text-transform:uppercase;padding:9px 10px;
+         padding:16px 22px;border-bottom:1px solid #E3E8F0;flex:none}
+.srchead h2{margin:0;font-size:16.5px;color:#16223A}
+.srchead .sub{font-size:12px;color:#6B7891;margin-top:5px;line-height:1.5}
+.srcclose{border:0;background:#F2F5FA;border-radius:8px;width:30px;height:30px;
+          font-size:16px;cursor:pointer;color:#44506A;flex:none}
+.srcbody{padding:4px 22px 20px;overflow-y:auto;flex:1 1 auto}
+.srcbody h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8792A8;
+            margin:18px 0 7px;position:sticky;top:0;background:#fff;padding:6px 0 4px}
+table.srctab{width:100%;border-collapse:collapse;font-size:11.8px}
+table.srctab th{text-align:left;background:#F4F7FC;color:#44506A;font-size:10.5px;
+                letter-spacing:.05em;text-transform:uppercase;padding:7px 9px;
                 border-bottom:1px solid #E3E8F0}
-table.srctab td{padding:9px 10px;border-bottom:1px solid #EEF1F6;vertical-align:top;
-                line-height:1.55;color:#24303F}
+table.srctab td{padding:8px 9px;border-bottom:1px solid #EEF1F6;vertical-align:top;
+                line-height:1.5;color:#24303F}
 table.srctab td.f{font-weight:700;color:#16223A}
 table.srctab code{background:#F2F5FA;border-radius:4px;padding:1px 5px;font-size:11.5px;
                   color:#2E5AAC}
