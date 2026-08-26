@@ -20,3 +20,8 @@ G:). Read-only — none of them write to BC.
 carries no hardcoded amounts or stale provenance claims, that every name and
 category traces to BC, and that each derived or unavailable figure is disclosed
 on the page. Exits non-zero on any failure.
+
+`verify_claims.py` and `verify_agent_attribution.py` re-test the four
+"not available from BC" statements shown in the app's Data sources panel
+against the live company. Re-run them before repeating those claims to a
+client — one of them was wrong the first time.

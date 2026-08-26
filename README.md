@@ -36,17 +36,30 @@ its category rather than an invented label. `mapping.py` holds these reading
 rules plus dated client instructions (currently one: Electra Marquees →
 Marketing Cost; BC has no invoice lines for it).
 
-## Not available from BC (told to the client, not backfilled)
+## Not available from BC (verified, not assumed)
 
-1. **In-house sales-agent commission** (Abhilash / Eoghan / Marius, previously
-   ~AED 647k) — staff, not vendors; earned exists only in Finance's manual
-   sheet; GL 21014 has no agent dimension. **Excluded** until it lives in BC.
-2. **Exact invoice→payment matching** — the published feed omits
-   `Closed_at_Date`/`Closed_by_Entry_No`, so Payment Performance is a FIFO
-   estimate. A small BC-side change (publish those fields) makes it exact.
-3. **Categories for journal-only vendors** (~305, mostly settled history) —
-   no invoice lines, so no cost account to derive from: shown *Uncategorised*.
-4. **Contract vs Variation split** — no BC field; removed rather than inferred.
+Each point was checked against the live company with `tools/verify_claims.py`.
+
+1. **In-house sales-agent commission.** Agents are employees, not vendors, so they
+   have no vendor account and no AP entry. Commission *paid* IS in BC (G/L 21014)
+   and can be attributed per agent via the `UNITNAME` dimension joined to
+   `BookingAgreement.Sales_Person_Name` — about 61% of that account carries a unit,
+   and the account also holds brokerage commission, split by the `PAYMENTPLAN`
+   dimension. What is missing is commission **earned but unpaid**: 21014 is a
+   payment/clearing account (98% debits, no accrual), so entitlement lives only in
+   Finance's manual schedule. Outstanding = earned − paid, so it cannot come from
+   BC. Excluded rather than estimated.
+2. **Exact payment timing.** The published Vendor Ledger Entries service exposes 26
+   fields; `Closed at Date`, `Closed by Entry No.`, `Closed by Amount` and
+   `Applies-to ID` are not among them, and no other published service carries them
+   (Detailed Vendor Ledger Entries is not published; the Power BI vendor feed has
+   four fields). Payment speed is therefore a FIFO estimate.
+3. **Contract versus variation.** AP invoice lines carry unit (`Shortcut Dimension
+   1`) and project (`Shortcut Dimension 2`) dimensions but nothing separating
+   contract from variation; 33 lines mention it in free text only. Not reported.
+4. **Four invalid-date entries** — `PPI000424`/`PPCM000028` (Vivium, 2029) and
+   `PPI000941`/`PPCM000105` (Google, 3035). Each is an invoice + matching credit
+   memo netting to nil with no remaining balance, so no balance is affected.
 
 ## Run / deploy
 
