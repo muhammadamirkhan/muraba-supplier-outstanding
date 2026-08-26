@@ -1,20 +1,25 @@
 """Turn BC vendor ledger entries into the three JSON blobs the dashboard expects.
 
-Money rules, validated against the original statement-derived dashboard:
+Money rules, all from the signed Amount(_LCY) on each ledger entry:
 
-  outstanding = -sum(Remaining_Amt_LCY)          <- ties to the statements exactly
-  invoiced    =  sum(Credit_Amount_LCY) - credit-memo debits
-  paid        =  sum(Debit_Amount_LCY)  - credit-memo debits
+  invoiced    = -sum(amount) over entries where amount < 0   (charged to us)
+                minus credit memos, which cancel part of a charge
+  paid        =  sum(amount) over entries where amount > 0   (settled), credit
+                memos excluded
+  outstanding = -sum(Remaining_Amt_LCY)
 
-Do NOT filter on Document_Type: it is blank on ~45% of entries (journal-posted),
-so `Document_Type == 'Invoice'` silently drops nearly half the value. The
-credit/debit columns carry every entry. Credit memos are debits, and the original
-dashboard nets them off invoiced rather than counting them as payments -- the
-subtraction appears on both lines so the identity invoiced - paid == outstanding
-still holds.
+Use the SIGNED amount, not the Debit/Credit columns: BC records some reversing
+journals with NEGATIVE debit and credit amounts, which makes a literal sum of
+those columns come out negative on both lines (Al Hai JV2100005 did exactly
+that). Equally, do NOT filter on Document_Type -- it is blank on ~45% of entries
+(journal-posted), so `Document_Type == 'Invoice'` silently drops half the value.
+
+The identity invoiced - paid == outstanding holds by construction, since both
+sides reduce to the vendor's net balance.
 
 BC keeps AP balances negative (a credit means we owe); every figure here is
-sign-flipped to the positive convention the dashboard displays.
+sign-flipped to the positive convention the dashboard displays. _zero() clamps
+signed-zero and sub-fils dust so nothing ever renders as "-0".
 """
 import datetime as _dt
 from collections import defaultdict
@@ -104,16 +109,46 @@ def group_entries(vle):
     return out, skipped
 
 
+def _zero(v):
+    """Kill -0 and sub-fils dust so nothing renders as '-0'."""
+    return 0.0 if abs(v) < 0.005 else v
+
+
+def _split(entries, amount_field):
+    """Charges vs settlements, from the SIGNED amount.
+
+    Derived from Amount(_LCY), not the Debit/Credit columns: BC records some
+    reversing journals with NEGATIVE debit and credit amounts (e.g. Al Hai
+    JV2100005), which made a literal sum of those columns come out negative on
+    both lines. The signed amount is unambiguous -- negative = charged to us,
+    positive = settled -- however the entry was booked.
+
+    A credit memo is a positive amount that cancels part of a charge, so it
+    reduces invoiced rather than counting as a payment.
+    """
+    invoiced = paid = 0.0
+    for e in entries:
+        a = _n(e, amount_field)
+        if a < 0:
+            invoiced -= a
+        elif a > 0:
+            if _is_credit_memo(e):
+                invoiced -= a
+            else:
+                paid += a
+    return invoiced, paid
+
+
 def _money(entries):
-    cm = sum(_n(e, "Debit_Amount_LCY") for e in entries if _is_credit_memo(e))
-    cm_o = sum(_n(e, "Debit_Amount") for e in entries if _is_credit_memo(e))
+    inv, paid = _split(entries, "Amount_LCY")
+    inv_o, paid_o = _split(entries, "Amount")
     return {
-        "invoiced_aed": sum(_n(e, "Credit_Amount_LCY") for e in entries) - cm,
-        "paid_aed": sum(_n(e, "Debit_Amount_LCY") for e in entries) - cm,
-        "outstanding_aed": -sum(_n(e, "Remaining_Amt_LCY") for e in entries),
-        "invoiced_orig": sum(_n(e, "Credit_Amount") for e in entries) - cm_o,
-        "paid_orig": sum(_n(e, "Debit_Amount") for e in entries) - cm_o,
-        "outstanding_orig": -sum(_n(e, "Remaining_Amount") for e in entries),
+        "invoiced_aed": _zero(inv),
+        "paid_aed": _zero(paid),
+        "outstanding_aed": _zero(-sum(_n(e, "Remaining_Amt_LCY") for e in entries)),
+        "invoiced_orig": _zero(inv_o),
+        "paid_orig": _zero(paid_o),
+        "outstanding_orig": _zero(-sum(_n(e, "Remaining_Amount") for e in entries)),
     }
 
 

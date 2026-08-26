@@ -142,7 +142,7 @@ label.sl{color:var(--mut);font-size:12px;font-weight:600}
 <script>
 const DATA=__DATA_JSON__, LEDGERS=__LEDGERS_JSON__, PERF=__PERF_JSON__;
 const C=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-const fmt=n=>(n==null||n==='')?'—':Math.round(n).toLocaleString('en-US');
+const fmt=n=>{if(n==null||n==='')return '—';let r=Math.round(n);if(r===0)r=0;/* also turns -0 into 0 */return r.toLocaleString('en-US');};
 const sup=Object.values(DATA).sort((a,b)=>(b.outstanding_aed||0)-(a.outstanding_aed||0));
 const SIDX={}; sup.forEach((s,i)=>SIDX[s.name]=i);
 const supCharts={};
