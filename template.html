@@ -229,14 +229,12 @@ function collectedBar(s){
  // geometry is clamped, so the widths stay sane.
  const p=100*s.paid_aed/s.invoiced_aed, du=100-p;
  const barPaid=Math.max(0,Math.min(100,p)), barDue=Math.max(0,Math.min(100,du));
- // Flag the credit off the same fact as the Outstanding column, so a supplier
- // showing a red balance never reads as "0% due". Sub-1% credits keep a decimal
- // rather than rounding away to "(0%)".
+ // Due is never negative: if we've over-paid, nothing is due -- the excess is a
+ // credit, shown in the Outstanding column, not a debt. Paid % is left uncapped
+ // so the over-payment is still visible (118% reads as 18% more than invoiced).
  const credit = (s.outstanding_aed||0) < -0.005;
- const a = Math.abs(du);
- const duTxt = credit ? `<span class="cred">(${a<1?a.toFixed(1):a.toFixed(0)}%)</span>`
-                      : `${Math.max(0,du).toFixed(0)}%`;
- const tip = credit ? `Paid ${p.toFixed(1)}% · over-paid by ${a.toFixed(1)}%`
+ const duTxt = `${Math.max(0,du).toFixed(0)}%`;
+ const tip = credit ? `Paid ${p.toFixed(1)}% of invoiced · nothing due · over-paid by ${Math.abs(du).toFixed(1)}% (credit)`
                     : `Paid ${p.toFixed(1)}% · Due ${du.toFixed(1)}%`;
  return `<div class="pbar" title="${tip}"><div class="track"><div class="fill" style="width:${barPaid}%"></div><div class="filldue" style="width:${barDue}%"></div></div><div class="pct">${p.toFixed(0)}% / ${duTxt}</div></div>`;
 }
