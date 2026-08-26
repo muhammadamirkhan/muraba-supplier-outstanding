@@ -13,3 +13,10 @@ G:). Read-only — none of them write to BC.
 | `test_pipeline.py` | Headless end-to-end check: identity `invoiced − paid = outstanding`, no negative figures, no `-0`, template renders. **Run before pushing.** |
 
 `_common.py` is shared bootstrap, not a tool.
+
+`audit_provenance.py` is the one to run before telling anyone the dashboard is
+100% BC: it re-derives balances from the raw feed independently of
+`transform.py`, checks that no source file reads a data file, that the template
+carries no hardcoded amounts or stale provenance claims, that every name and
+category traces to BC, and that each derived or unavailable figure is disclosed
+on the page. Exits non-zero on any failure.

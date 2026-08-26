@@ -1,9 +1,10 @@
-"""Supplier Outstanding -- live from Business Central.
+"""Supplier Outstanding -- 100% live from Business Central.
 
-Renders the original Supplier_Dashboard.html unchanged (same CSS, charts, row
-expansion and print-to-SOA), with its three data blobs replaced by live BC data.
-Keeping the template intact is deliberate: Streamlit widgets can't reproduce the
-print stylesheet, and st.data_editor can't style rows at all.
+template.html supplies the LAYOUT only (CSS, charts, row expansion, the print
+stylesheet); its three data placeholders are filled with data read from BC on
+every refresh. No value on the page originates in a file. Keeping a plain HTML
+template is deliberate: Streamlit widgets cannot reproduce the print-to-Statement
+-of-Account stylesheet, and st.data_editor cannot style rows at all.
 """
 import datetime as dt
 import json
@@ -115,7 +116,7 @@ n1, n2, n3 = st.columns(3)
 with n1.expander("Data notes — everything from BC"):
     st.markdown(
         f"""
-The reference HTML is layout only; no value on this page comes from it.
+The reference HTML is layout only; no value on this page comes from it. Click **ⓘ Data sources** on the dashboard for the full metric-by-metric breakdown.
 
 - **Vendors** = every vendor in BC's ledger with non-zero money
   ({diag['vendors_shown']} of {diag['vendors_in_ledger']} in the ledger).
@@ -124,8 +125,10 @@ The reference HTML is layout only; no value on this page comes from it.
   (purchase invoice lines record the account; the Chart of Accounts names it).
   Mechanics accounts (CWIP, advances, prepaid, accruals) are skipped when a
   real cost line exists.
-- **Money**: outstanding = `Remaining_Amt_LCY`; invoiced/paid from the
-  credit/debit columns, credit memos netted off invoiced. FX at BC's booked rates.
+- **Money**: outstanding = `Remaining_Amt_LCY`; invoiced/paid from the **signed**
+  `Amount_LCY` (BC books some reversals with negative debits *and* credits, so the
+  Debit/Credit columns can't be summed literally), credit memos netted off
+  invoiced. FX at BC's booked rates.
 - **Payment speed is estimated** (FIFO): BC doesn't publish which payment
   settled which invoice. Exact figures need the BC admin to expose
   `Closed_at_Date` / `Closed_by_Entry_No`.
