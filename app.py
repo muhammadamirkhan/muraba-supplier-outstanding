@@ -89,6 +89,19 @@ except bc.BCError as e:
 
 DATA, PERF, LEDGERS, TXNS, diag = transform.build(vle, lines, coa, pinv)
 
+# Streamlit re-runs this script and re-reads template.html from disk, but keeps
+# imported modules cached. A server started before a transform.py change will
+# therefore serve a NEW template against OLD data -- which once rendered an
+# arbitrary supplier under the Statement of Account heading. Fail loudly rather
+# than let that look authoritative.
+if len(LEDGERS) > len(mapping.SOA_SUPPLIERS):
+    st.error(
+        f"Statement mismatch: {len(LEDGERS)} statements built but only "
+        f"{len(mapping.SOA_SUPPLIERS)} supplier(s) are configured in "
+        f"`mapping.SOA_SUPPLIERS`. This server is running a stale `transform` "
+        f"module — restart it (Streamlit does not reload imported modules)."
+    )
+
 latest = max(
     (str(e.get("Posting_Date") or "")[:10] for e in vle
      if e.get("Posting_Date") and str(e["Posting_Date"])[:4] <= str(dt.date.today().year)),

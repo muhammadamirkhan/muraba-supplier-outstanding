@@ -598,8 +598,12 @@ function renderAgeing(){ ageCells(ageTotals(sup),'ageAll','ageBarAll'); }
 // below reproduces the client's own workbook: the eight columns of its first
 // sheet, then Total - AED and % of Amount paid, with amounts in the workbook's
 // accounting format.
+let soaPick=null;
 function renderSoa(){
- const names=Object.keys(LEDGERS);
+ // Render only suppliers whose statement format has been agreed. Never pick
+ // "the first key" -- object order follows the BC ledger, so a stale or wider
+ // LEDGERS would silently present an arbitrary supplier as THE statement.
+ const names=Object.keys(LEDGERS).sort();
  const host=document.getElementById('soaView');
  const btn=document.getElementById('soaPrint');
  if(!names.length){
@@ -607,11 +611,17 @@ function renderSoa(){
    host.innerHTML='<p class="note">No statement is configured yet.</p>';
    return;
  }
- const name=names[0], L=LEDGERS[name], s=sup.find(x=>x.name===name);
+ if(!soaPick || names.indexOf(soaPick)<0) soaPick=names[0];
+ const chooser = names.length>1
+   ? `<div class="controls" style="margin-bottom:10px">`+names.map(n=>
+       `<button class="catbtn${n===soaPick?' active':''}" data-soa="${encodeURIComponent(n)}"
+         onclick="soaPick=decodeURIComponent(this.dataset.soa);renderSoa();">${n}</button>`).join('')+
+     `</div>` : '';
+ const name=soaPick, L=LEDGERS[name], s=sup.find(x=>x.name===name);
  btn.style.display=''; btn.onclick=()=>printSup(name);
  const cc=L.currency||'AED', NUM=[2,4,5];
  const pct=L.invoiced>0?(100*L.paid/L.invoiced):0;
- host.innerHTML=
+ host.innerHTML= chooser +
   `<div style="font-size:17px;font-weight:700;color:var(--slate)">${name}</div>
    <div class="tag" style="margin-bottom:10px">Statement of Account as of __ASOF__${
      cc!=='AED'?' &middot; amounts in '+cc:''}</div>
