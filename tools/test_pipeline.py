@@ -13,7 +13,7 @@ def main():
     vle, lines, coa = pull()
     print(f"BC: {len(vle):,} ledger entries, {len(lines):,} invoice lines, {len(coa):,} accounts")
 
-    DATA, PERF, LEDGERS, diag = transform.build(vle, lines, coa)
+    DATA, PERF, LEDGERS, TXNS, diag = transform.build(vle, lines, coa)
     print("\n=== diagnostics ===")
     for k, v in diag.items():
         print(f"  {k}: {len(v) if isinstance(v, list) else v}")
@@ -40,9 +40,15 @@ def main():
     out = (tpl.replace("__DATA_JSON__", json.dumps(DATA, ensure_ascii=False))
               .replace("__PERF_JSON__", json.dumps(PERF, ensure_ascii=False))
               .replace("__LEDGERS_JSON__", json.dumps(LEDGERS, ensure_ascii=False))
+              .replace("__TXNS_JSON__", json.dumps(TXNS, ensure_ascii=False))
+              .replace("__TXNHEAD_JSON__", json.dumps(diag["txn_head"], ensure_ascii=False))
               .replace("__ASOF__", "today"))
-    left = [x for x in ("__DATA_JSON__", "__PERF_JSON__", "__LEDGERS_JSON__", "__ASOF__") if x in out]
+    # every placeholder the template declares must be filled -- scan for any
+    # __NAME__ left behind rather than a hardcoded list that goes stale
+    import re as _re
+    left = sorted(set(_re.findall(r"__[A-Z_]+__", out)))
     print(f"render: {len(out)/1e6:.2f} MB, leftover placeholders: {left or 'none'}")
+    print(f"transactions: {diag['txn_rows']:,} rows across {len(TXNS)} suppliers")
 
 
 if __name__ == "__main__":

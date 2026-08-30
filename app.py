@@ -87,7 +87,7 @@ except bc.BCError as e:
     )
     st.stop()
 
-DATA, PERF, LEDGERS, diag = transform.build(vle, lines, coa, pinv)
+DATA, PERF, LEDGERS, TXNS, diag = transform.build(vle, lines, coa, pinv)
 
 latest = max(
     (str(e.get("Posting_Date") or "")[:10] for e in vle
@@ -110,7 +110,8 @@ with c3:
     st.caption(
         f"✅ **BC live** · {diag['entries_used']:,} entries · "
         f"{diag['vendors_shown']} vendors with activity · "
-        f"{diag['open_items']} open items · latest posting {latest}"
+        f"{diag['open_items']} open items · {diag['txn_rows']:,} transactions · "
+        f"latest posting {latest}"
     )
 with c4:
     st.caption(f"**Total outstanding** AED {diag['total_outstanding']:,.0f}")
@@ -182,6 +183,8 @@ html = (
     html.replace("__DATA_JSON__", json.dumps(DATA, ensure_ascii=False))
         .replace("__PERF_JSON__", json.dumps(PERF, ensure_ascii=False))
         .replace("__LEDGERS_JSON__", json.dumps(LEDGERS, ensure_ascii=False))
+        .replace("__TXNS_JSON__", json.dumps(TXNS, ensure_ascii=False))
+        .replace("__TXNHEAD_JSON__", json.dumps(diag["txn_head"], ensure_ascii=False))
         .replace("__ASOF__", asof_txt)
 )
 render_dashboard(html)

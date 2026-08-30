@@ -13,7 +13,7 @@ OUT = os.path.join(APP, "supplier_categories.csv")
 
 def main():
     vle, lines, coa = pull()
-    DATA, _PERF, _LED, _diag = transform.build(vle, lines, coa)
+    DATA, _PERF, _LED, TXNS, _diag = transform.build(vle, lines, coa)
     spend = transform._vendor_spend_by_account(lines)
 
     no_by_name = {}

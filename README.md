@@ -110,3 +110,15 @@ Date, Payment Amount, Balance, Description, then Total — AED and % paid.
 A `360+` bucket is added beyond the five requested: roughly AED 7.8m of open
 items are older than 360 days and would otherwise be missing from a table that
 is meant to total the payable. Buckets always sum to Total Outstanding.
+
+**Transactions** — every Vendor Ledger Entry for a supplier, as booked: entry
+no, posting/document/due dates, type, the supplier's invoice number, BC document
+no, description, currency, debit, credit, amount (LCY), remaining and the open
+flag, with source/reason/purchaser/payment-discount date/transaction no/
+dimension set/original amount behind an "All BC fields" toggle. Nothing is
+paired or netted here — that is what the SOA tab does. Filters: supplier search,
+a free-text filter across the rows, and open-items-only. Debit, credit and
+remaining totals follow the filtered set, and remaining ties to the register.
+
+Rows travel as plain arrays against a header list rather than objects; at ~11k
+entries the repeated keys would roughly double the payload (currently 3.7 MB).

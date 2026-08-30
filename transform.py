@@ -375,6 +375,58 @@ def build_perf(grouped, names):
 # printable statements
 # ---------------------------------------------------------------------------
 
+# Every Vendor Ledger Entry field worth showing, plus the supplier's own invoice
+# reference and the invoice-line description joined in. Rows are emitted as plain
+# arrays against this header to keep the payload small -- objects would repeat
+# every key on all ~11k entries.
+TXN_HEAD = ["Entry No", "Posting Date", "Document Date", "Due Date", "Type",
+            "Supplier Inv. No", "BC Doc No", "Description", "Cur.",
+            "Debit", "Credit", "Amount (LCY)", "Remaining (LCY)", "Open",
+            "Source", "Reason", "Purchaser", "Pmt Disc. Date", "Trans. No",
+            "Dim. Set", "Original Amt (LCY)"]
+TXN_NUM = [9, 10, 11, 12, 20]          # right-aligned money columns
+TXN_DEFAULT_COLS = list(range(0, 14))  # the rest are collapsed behind a toggle
+
+
+def build_transactions(entries, refs, descriptions):
+    """One row per ledger entry, in posting order -- the vendor account as booked.
+
+    Distinct from build_ledger, which pairs invoices with the payments that
+    settled them for the statement. Here nothing is paired or netted: every
+    entry BC holds for the vendor is listed with its own debit, credit and
+    remaining balance.
+    """
+    refs = refs or {}
+    descriptions = descriptions or {}
+    rows = []
+    for e in entries:
+        doc = e.get("Document_No") or ""
+        rows.append([
+            e.get("Entry_No") or "",
+            _fmt_date(e.get("Posting_Date")),
+            _fmt_date(e.get("Document_Date")),
+            _fmt_date(e.get("Due_Date")),
+            (e.get("Document_Type") or "").strip() or "Journal",
+            refs.get(doc, ""),
+            doc,
+            (descriptions.get(doc) or "")[:90],
+            (e.get("Currency_Code") or "").strip() or "AED",
+            _zero(round(_n(e, "Debit_Amount_LCY"), 2)),
+            _zero(round(_n(e, "Credit_Amount_LCY"), 2)),
+            _zero(round(_n(e, "Amount_LCY"), 2)),
+            _zero(round(-_n(e, "Remaining_Amt_LCY"), 2)),
+            "Open" if e.get("Open") else "",
+            (e.get("Source_Code") or "").strip(),
+            (e.get("Reason_Code") or "").strip(),
+            (e.get("Purchaser_Code") or "").strip(),
+            _fmt_date(e.get("Pmt_Discount_Date")),
+            e.get("Transaction_No") or "",
+            e.get("Dimension_Set_ID") or "",
+            _zero(round(_n(e, "Original_Amt_LCY"), 2)),
+        ])
+    return rows
+
+
 LEDGER_HEAD = ["Supplier Inv. No", "Invoice Date", "Invoice Amount", "Payment Date",
                "Payment Amount", "Balance", "Description", "BC Ref."]
 
@@ -518,7 +570,7 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
 
     spend = _vendor_spend_by_account(invoice_lines)
 
-    DATA, LEDGERS = {}, {}
+    DATA, LEDGERS, TXNS = {}, {}, {}
     names, uncategorised, overridden = {}, [], []
     for no, entries in grouped.items():
         m = _money(entries)
@@ -552,6 +604,7 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
             "master_aed": None,
         }
         LEDGERS[name] = build_ledger(entries, descriptions, ccy, refs)
+        TXNS[name] = build_transactions(entries, refs, descriptions)
 
     PERF = build_perf({no: grouped[no] for no in names}, names)
 
@@ -569,8 +622,10 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
         "supplier_refs": len(refs),
         "asof": asof.isoformat() if asof else "",
         "age_buckets": [b[0] for b in AGE_BUCKETS],
+        "txn_rows": sum(len(v) for v in TXNS.values()),
         "total_outstanding": round(sum(v["outstanding_aed"] or 0 for v in DATA.values()), 2),
         "total_invoiced": round(sum(v["invoiced_aed"] or 0 for v in DATA.values()), 2),
         "total_paid": round(sum(v["paid_aed"] or 0 for v in DATA.values()), 2),
     }
-    return DATA, PERF, LEDGERS, diagnostics
+    diagnostics["txn_head"] = TXN_HEAD
+    return DATA, PERF, LEDGERS, TXNS, diagnostics

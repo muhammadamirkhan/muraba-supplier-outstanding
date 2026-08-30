@@ -104,6 +104,21 @@ label.sl{color:var(--mut);font-size:12px;font-weight:600}
 .soatab tr.tot td{font-weight:700;background:#f5f8fe;border-top:2px solid var(--blue)}
 .soahdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px}
 .soahdr h2{margin:0}
+.txnwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:#fff;
+  max-height:560px;overflow-y:auto}
+table.txntab{width:100%;border-collapse:collapse;font-size:11.8px;white-space:nowrap}
+table.txntab th{position:sticky;top:0;z-index:1;background:#eef2f8;color:var(--slate);
+  font-size:10px;letter-spacing:.03em;text-transform:uppercase;padding:8px 9px;
+  border-bottom:1px solid var(--line);text-align:left}
+table.txntab td{padding:6px 9px;border-bottom:1px solid var(--line);color:var(--txt)}
+table.txntab td.num,table.txntab th.num{text-align:right;font-variant-numeric:tabular-nums}
+table.txntab tr:hover td{background:var(--soft)}
+table.txntab td.desc{white-space:normal;min-width:250px;max-width:430px}
+table.txntab tr.isopen td{background:#fffaf2}
+table.txntab tr.isopen:hover td{background:#fff4e2}
+.opentag{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:20px;
+  background:#fdf0dd;color:#a4671a;border:1px solid #f0d9b5}
+.txnsum{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 4px}
 .srcbtn{border:1px solid #C9D4E6;background:#fff;color:#2E5AAC;border-radius:8px;
         padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
 .srcbtn:hover{background:#F2F6FC}
@@ -178,6 +193,7 @@ table.srctab code{background:#F2F5FA;border-radius:4px;padding:1px 5px;font-size
 <div class="tabs">
  <button id="tabRegBtn" class="on" onclick="showTab('register')">Supplier Register</button>
  <button id="tabSoaBtn" onclick="showTab('soa')">Statement of Account &amp; Ageing</button>
+ <button id="tabTxnBtn" onclick="showTab('txn')">Transactions</button>
 </div>
 <div id="tab-register">
 <div class="kpis" id="kpis"></div>
@@ -250,12 +266,30 @@ table.srctab code{background:#F2F5FA;border-radius:4px;padding:1px 5px;font-size
  </div>
 </div>
 
+<div id="tab-txn" style="display:none">
+ <div class="panel">
+  <div class="soahdr"><h2>Vendor ledger transactions</h2>
+   <div class="tag">Every entry Business Central holds for the vendor, as booked &mdash;
+    nothing paired or netted.</div></div>
+  <div class="soapick">
+   <input id="txnSearch" type="search" placeholder="Search a supplier&hellip;" autocomplete="off">
+   <input id="txnFilter" type="search" placeholder="Filter these transactions&hellip;"
+          autocomplete="off" style="min-width:230px">
+   <label class="chk"><input type="checkbox" id="txnOpenOnly"> Open items only</label>
+   <label class="chk"><input type="checkbox" id="txnAllCols"> All BC fields</label>
+   <span id="txnCount" class="tag"></span>
+  </div>
+  <div id="txnList"></div>
+  <div id="txnView" style="margin-top:16px"></div>
+ </div>
+</div>
+
 <div class="foot" id="foot"></div>
 </div>
 <div class="srcwrap" id="srcwrap" onclick="if(event.target===this)this.classList.remove('on')"><div class="srcbox"><div class="srchead"><div><h2>Where each figure comes from</h2><div class="sub">Every figure on this page is read from Microsoft Dynamics 365 Business Central (company <b>Muraba Properties LLC</b>, Production environment) each time the page is refreshed. Nothing is keyed in, cached or held in a spreadsheet. The tables below give the BC source and the derivation for each metric.</div></div><button class="srcclose" onclick="document.getElementById('srcwrap').classList.remove('on')">&times;</button></div><div class="srcbody"><h3>Balances</h3><table class="srctab"><thead><tr><th style="width:21%">Figure</th><th style="width:26%">Source in Business Central</th><th>Derivation</th></tr></thead><tbody><tr><td class='f'>Outstanding / Balance Pending</td><td><code>Vendor Ledger Entries</code> &mdash; <code>Remaining Amount (LCY)</code></td><td>The sum of the unapplied balance of every entry for that supplier, sign-reversed for display. This is the AP subledger balance: what is left open after applications. A figure in red brackets is a credit balance &mdash; the supplier owes us.</td></tr><tr><td class='f'>Invoiced</td><td><code>Vendor Ledger Entries</code> &mdash; <code>Amount (LCY)</code>, credit side</td><td>Amounts charged to us, less credit memos (which reduce the charge rather than count as settlement). Taken from the signed amount rather than the Debit/Credit columns, because BC books certain reversing journals with negative debits <i>and</i> negative credits.</td></tr><tr><td class='f'>Paid</td><td><code>Vendor Ledger Entries</code> &mdash; <code>Amount (LCY)</code>, debit side</td><td>Amounts settled, excluding credit memos. Covers payments, refunds and journal settlements &mdash; not only documents typed as Payment, since roughly half of BC&rsquo;s AP entries are journal-posted with no document type.</td></tr><tr><td class='f'>Paid % / Due %</td><td>Derived from the two figures above</td><td>Paid &divide; Invoiced. Due is the remainder, floored at 0%: where a supplier has been over-paid the Paid % exceeds 100% and nothing is due &mdash; the excess shows as a credit in Outstanding.</td></tr><tr><td class='f'>Total Outstanding / Invoiced / Paid</td><td><code>Vendor Ledger Entries</code>, all suppliers</td><td>The same three measures aggregated across every supplier on the register. Invoiced &minus; Paid = Outstanding holds for each supplier and in total.</td></tr><tr><td class='f'>Suppliers with a balance</td><td><code>Vendor Ledger Entries</code></td><td>Count of suppliers whose balance is not nil, in either direction.</td></tr></tbody></table><h3>Classification and identity</h3><table class="srctab"><thead><tr><th style="width:21%">Figure</th><th style="width:26%">Source in Business Central</th><th>Derivation</th></tr></thead><tbody><tr><td class='f'>Category tag</td><td><code>Posted Purchase Invoice Lines</code> &rarr; <code>Chart of Accounts</code></td><td>Every purchase invoice line records the G/L account the cost is posted to. Spend is totalled by account for the supplier and the largest taken; the tag is that account&rsquo;s name in the Chart of Accounts, e.g. <code>21013 Design &amp; Supervision</code>. The project suffix is trimmed for display only. The tag therefore reflects the cost line the spend is booked to, not the supplier&rsquo;s trade.</td></tr><tr><td class='f'>Accounts ignored when classifying</td><td><code>Chart of Accounts</code></td><td><code>24810</code> Project cost CWIP, <code>24420</code> Advance to Contractors, <code>22300</code> Prepaid Expense, <code>51300</code> Accrued Expense and <code>30800</code> Owner&rsquo;s Current Account describe accounting treatment rather than the nature of the spend, so they are skipped &mdash; unless the supplier has nothing else, in which case the account is shown as-is.</td></tr><tr><td class='f'>&ldquo;Uncategorised&rdquo;</td><td><code>Posted Purchase Invoice Lines</code></td><td>The supplier has no posted purchase invoice lines &mdash; its costs were journal-posted &mdash; so BC offers no cost account to classify it by. Amounts are unaffected.</td></tr><tr><td class='f'>Supplier name</td><td><code>Vendor Ledger Entries</code> &mdash; <code>Vendor Name</code></td><td>BC&rsquo;s registered vendor name, verbatim. Suppliers are identified throughout by Vendor No., never by name.</td></tr><tr><td class='f'>Which suppliers appear</td><td><code>Vendor Ledger Entries</code></td><td>Every vendor in the AP subledger with a non-nil invoiced, paid or outstanding figure. Vendors with no activity are omitted.</td></tr><tr><td class='f'>Currency</td><td><code>Vendor Ledger Entries</code> &mdash; <code>Currency Code</code></td><td>The supplier&rsquo;s invoicing currency. AED figures use <code>Amount (LCY)</code> &mdash; the rate BC booked on each entry, not a period-end or indicative rate.</td></tr></tbody></table><h3>Supplier detail</h3><table class="srctab"><thead><tr><th style="width:21%">Figure</th><th style="width:26%">Source in Business Central</th><th>Derivation</th></tr></thead><tbody><tr><td class='f'>Open items</td><td><code>Vendor Ledger Entries</code> &mdash; <code>Open</code>, <code>Remaining Amount</code></td><td>Entries still flagged open in BC with their unapplied balance. These are the documents that make up the supplier&rsquo;s outstanding figure.</td></tr><tr><td class='f'>Printed Statement of Account</td><td><code>Vendor Ledger Entries</code> + <code>Posted Purchase Invoice Lines</code></td><td>Every ledger entry for the supplier in posting-date order with a running balance and the invoice-line description. Totals reconcile to the register row.</td></tr><tr><td class='f'>As-of date</td><td><code>Vendor Ledger Entries</code> &mdash; <code>Posting Date</code></td><td>Defaults to the latest posting date present in BC; adjustable at the top of the page. It labels the page and the printed statements.</td></tr></tbody></table><h3>Payment performance</h3><table class="srctab"><thead><tr><th style="width:21%">Figure</th><th style="width:26%">Source in Business Central</th><th>Derivation</th></tr></thead><tbody><tr><td class='f'>Avg Days to Pay &middot; On-Time Rate &middot; Within 60 Days &middot; Payments Analysed</td><td><code>Vendor Ledger Entries</code> &mdash; <code>Posting Date</code>, <code>Amount (LCY)</code></td><td><b>Estimated.</b> The amounts and dates are BC&rsquo;s, but the published feed does not expose which payment settled which invoice (<code>Closed at Date</code> and <code>Closed by Entry No.</code> are not included in the web service). Payments are therefore applied to each supplier&rsquo;s oldest open invoices first (FIFO) and the interval measured. Dependable in aggregate; an individual supplier&rsquo;s figure may differ from the actual application.</td></tr><tr><td class='f'>Payment-speed trend by quarter</td><td><code>Vendor Ledger Entries</code></td><td>The same estimate, grouped by the quarter in which the payment was posted. Last 13 quarters.</td></tr></tbody></table><div class="srcnote"><b>Not reported here, and why.</b> Each point below was checked against the live company, not assumed.<br><br><b>1. In-house sales-agent commission.</b> Agents are employees, not vendors: they have no vendor account and raise no invoice, so they cannot appear on an AP register. Commission <i>paid</i> is in BC &mdash; G/L <code>21014 Sales Commission</code> &mdash; and can be attributed to an agent through the <code>UNITNAME</code> dimension joined to the booking agreement&rsquo;s salesperson (about 61% of that account&rsquo;s value carries a unit; the account also holds brokerage commission, separated by the <code>PAYMENTPLAN</code> dimension). What BC does <i>not</i> hold is commission <b>earned but not yet paid</b>: account 21014 is a payment and clearing account &mdash; 98% of its movement is debits, with no accrual &mdash; so the entitlement exists only in Finance&rsquo;s manual schedule. Since an agent&rsquo;s outstanding balance is earned less paid, it cannot be produced from BC and is excluded rather than estimated. Accruing commission per agent in BC would resolve it.<br><br><b>2. Exact payment timing.</b> The published Vendor Ledger Entries service exposes 26 fields; <code>Closed at Date</code>, <code>Closed by Entry No.</code>, <code>Closed by Amount</code> and <code>Applies-to ID</code> are not among them, and no other published service carries them (<code>Detailed Vendor Ledger Entries</code> is not published; the Power BI vendor feed exposes four fields). Invoice-to-payment application is therefore unavailable and the payment-speed metrics are a FIFO estimate. Adding those fields to the web service would make them exact.<br><br><b>3. Contract versus variation split.</b> AP invoice lines do carry dimensions &mdash; unit (<code>Shortcut Dimension 1</code>) and project (<code>Shortcut Dimension 2</code>) &mdash; but nothing that distinguishes contract works from variations. Thirty-three lines mention a variation in the free-text description only, which is not a reliable basis for a figure, so the split is not reported. A dedicated dimension or flag on the invoice line would provide it.<br><br><b>4. Entries with invalid posting dates.</b> Four entries carry dates outside any plausible period and are excluded from the ageing analysis: <code>PPI000424</code> / <code>PPCM000028</code> (Vivium Living, dated 2029) and <code>PPI000941</code> / <code>PPCM000105</code> (Google, dated 3035). Each is an invoice and matching credit memo that net to nil with no remaining balance, so no supplier balance and no total is affected.</div></div></div></div>
 <div id="printArea"></div>
 <script>
-const DATA=__DATA_JSON__, LEDGERS=__LEDGERS_JSON__, PERF=__PERF_JSON__;
+const DATA=__DATA_JSON__, LEDGERS=__LEDGERS_JSON__, PERF=__PERF_JSON__, TXNS=__TXNS_JSON__, TXNHEAD=__TXNHEAD_JSON__;
 const C=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const fmt=n=>{if(n==null||n==='')return '—';let r=Math.round(n);if(r===0)r=0;/* also turns -0 into 0 */return r.toLocaleString('en-US');};
 const sup=Object.values(DATA).sort((a,b)=>(b.outstanding_aed||0)-(a.outstanding_aed||0));
@@ -459,12 +493,82 @@ function printSup(name){
 }
 // ---------------------------------------------------------------- tabs
 function showTab(which){
- document.getElementById('tab-register').style.display = which==='register' ? '' : 'none';
- document.getElementById('tab-soa').style.display      = which==='soa'      ? '' : 'none';
+ ['register','soa','txn'].forEach(k=>{
+   document.getElementById('tab-'+k).style.display = (which===k) ? '' : 'none';});
  document.getElementById('tabRegBtn').classList.toggle('on', which==='register');
  document.getElementById('tabSoaBtn').classList.toggle('on', which==='soa');
+ document.getElementById('tabTxnBtn').classList.toggle('on', which==='txn');
  if(which==='soa'){ renderAgeing(); renderSoaList(); }
+ if(which==='txn'){ renderTxnList(); }
 }
+
+// ---------------------------------------------------------------- transactions
+// Rows arrive as plain arrays against TXNHEAD -- objects would repeat every key
+// across ~11k entries and roughly double the payload.
+const TXN_NUM=[9,10,11,12,20], TXN_BASE=14;   // money columns; first 14 shown by default
+let txnQuery='', txnSel=null, txnRowFilter='';
+function txnCandidates(){
+ return sup.filter(s=> !txnQuery || (s.name||'').toLowerCase().includes(txnQuery));
+}
+function renderTxnList(){
+ const L=txnCandidates();
+ document.getElementById('txnCount').textContent=
+   `${L.length} supplier${L.length===1?'':'s'}`;
+ document.getElementById('txnList').innerHTML = L.length
+  ? `<div id="soaList">`+L.slice(0,400).map(s=>{
+      const n=(TXNS[s.name]||[]).length;
+      return `<div data-n="${encodeURIComponent(s.name)}" class="${txnSel===s.name?'sel':''}"
+        onclick="pickTxn(decodeURIComponent(this.dataset.n))">
+        <span>${s.name}</span>
+        <span class="amt">${n} txn${n===1?'':'s'}</span></div>`;}).join('')
+     + (L.length>400?`<div style="color:var(--mut)">…${L.length-400} more, narrow the search</div>`:'')
+     + `</div>`
+  : `<div class="note">No suppliers match.</div>`;
+}
+function pickTxn(name){
+ txnSel=name; renderTxnList(); drawTxns();
+}
+function drawTxns(){
+ const host=document.getElementById('txnView');
+ if(!txnSel){ host.innerHTML=''; return; }
+ const all=TXNS[txnSel]||[], s=sup.find(x=>x.name===txnSel);
+ const openOnly=document.getElementById('txnOpenOnly').checked;
+ const allCols=document.getElementById('txnAllCols').checked;
+ const cols=allCols?TXNHEAD.map((_,i)=>i):TXNHEAD.map((_,i)=>i).slice(0,TXN_BASE);
+ const q=txnRowFilter;
+ const rows=all.filter(r=>{
+   if(openOnly && r[13]!=='Open') return false;
+   if(q && !r.some(c=>String(c).toLowerCase().includes(q))) return false;
+   return true;});
+ const sum=(i)=>rows.reduce((a,r)=>a+(typeof r[i]==='number'?r[i]:0),0);
+ host.innerHTML=
+  `<div class="soahdr"><div>
+     <div style="font-size:17px;font-weight:700;color:var(--slate)">${txnSel}</div>
+     <div class="tag">${rows.length} of ${all.length} transactions${openOnly?' · open only':''}</div>
+   </div><div><span class="cat">${s?s.category:''}</span></div></div>
+   <div class="txnsum">
+     <div class="sumcard"><div class="l">Debit total</div><div class="v">${fmt(sum(9))}</div></div>
+     <div class="sumcard"><div class="l">Credit total</div><div class="v">${fmt(sum(10))}</div></div>
+     <div class="sumcard lead"><div class="l">Remaining</div><div class="v">${fmt(sum(12))}</div></div>
+   </div>
+   <div class="txnwrap"><table class="txntab"><thead><tr>`+
+   cols.map(i=>`<th class="${TXN_NUM.includes(i)?'num':''}">${TXNHEAD[i]}</th>`).join('')+
+   `</tr></thead><tbody>`+
+   (rows.length?rows.map(r=>`<tr class="${r[13]==='Open'?'isopen':''}">`+
+      cols.map(i=>{
+        let v=r[i];
+        if(i===13) v = v==='Open' ? '<span class="opentag">Open</span>' : '';
+        else if(TXN_NUM.includes(i)) v = (typeof v==='number' && v===0) ? '' : fmt(v);
+        else if(v===null||v===undefined) v='';
+        return `<td class="${TXN_NUM.includes(i)?'num':(i===7?'desc':'')}">${v}</td>`;}).join('')+
+      `</tr>`).join('')
+    :`<tr><td colspan="${cols.length}" style="padding:20px;text-align:center;color:var(--mut)">No transactions match.</td></tr>`)+
+   `</tbody></table></div>`;
+}
+document.getElementById('txnSearch').oninput=e=>{txnQuery=(e.target.value||'').trim().toLowerCase(); renderTxnList();};
+document.getElementById('txnFilter').oninput=e=>{txnRowFilter=(e.target.value||'').trim().toLowerCase(); drawTxns();};
+document.getElementById('txnOpenOnly').onchange=drawTxns;
+document.getElementById('txnAllCols').onchange=drawTxns;
 
 // ---------------------------------------------------------------- ageing
 const AGE_KEYS=['0-30','31-60','61-90','91-180','181-360','360+'];

@@ -64,9 +64,13 @@ def main():
                    "Statement of Account files", "Statement of Account register"):
         check(phrase not in tpl, "no stale claim %r" % phrase)
     # Money on this page is always comma-grouped; account numbers are not.
-    # Strip rgb()/rgba() first -- CSS colours are comma-grouped triples too.
-    css_free = re.sub(r"rgba?\([^)]*\)", "", tpl)
-    money = re.findall(r"\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b", css_free)
+    # Two things to exclude first, or the check cries wolf on its own codebase:
+    #   rgb()/rgba() -- CSS colours are comma-grouped triples
+    #   fn(a,bcd)    -- JS call arguments, e.g. slice(0,400)
+    # A real amount never leads with a bare zero, so require 1-9 up front.
+    clean = re.sub(r"rgba?\([^)]*\)", "", tpl)
+    clean = re.sub(r"\(\s*\d+\s*,\s*\d+\s*\)", "()", clean)
+    money = re.findall(r"\b[1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?\b", clean)
     check(not money, "no hardcoded amounts", ", ".join(money[:5]))
 
     # ---------------------------------------------------------------- live
@@ -74,7 +78,7 @@ def main():
     vle, lines, coa = pull()
     print("  pulled %s ledger entries, %s invoice lines, %s accounts"
           % (format(len(vle), ","), format(len(lines), ","), format(len(coa), ",")))
-    DATA, PERF, LEDGERS, diag = transform.build(vle, lines, coa)
+    DATA, PERF, LEDGERS, TXNS, diag = transform.build(vle, lines, coa)
 
     # recompute balances straight from the raw feed, bypassing transform
     raw = {}
