@@ -38,7 +38,7 @@ def main():
     #   TEMPLATE  -> template.html, the layout
     #   CRED_FILE -> the local credentials note, a secret
     ALLOWED = ("TEMPLATE", "CRED_FILE")
-    for name in ("app.py", "bc.py", "transform.py", "mapping.py"):
+    for name in ("app.py", "bc.py", "transform.py", "mapping.py", "soa_excel.py"):
         src = io.open(os.path.join(APP, name), encoding="utf-8").read()
         code = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
         offenders = []

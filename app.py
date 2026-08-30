@@ -14,6 +14,7 @@ import streamlit as st
 
 import bc
 import mapping
+import soa_excel
 import transform
 
 # The dashboard must render inside an iframe: it ships its own CSS and a print
@@ -129,6 +130,26 @@ with c3:
 with c4:
     st.caption(f"**Total outstanding** AED {diag['total_outstanding']:,.0f}")
 asof_txt = asof.strftime("%d %B %Y")
+
+# Statement download. Served by Streamlit, not the dashboard: the page renders
+# in a sandboxed iframe, which blocks a download a link inside it would start.
+if LEDGERS:
+    dl = st.columns([1.4, 1.4, 4.2])
+    for i, (soa_name, ledger) in enumerate(sorted(LEDGERS.items())[:2]):
+        with dl[i]:
+            try:
+                st.download_button(
+                    f"⬇ {soa_name.split()[0]} SOA (Excel)",
+                    data=soa_excel.build(
+                        soa_name, ledger, asof_txt,
+                        (DATA.get(soa_name) or {}).get("category", "")),
+                    file_name=f"{soa_name.split('(')[0].strip()} - SOA {asof.isoformat()}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    help="Statement of Account in the client's workbook format",
+                )
+            except Exception as e:  # never let an export fault take the page down
+                st.caption(f"Excel export unavailable: {e}")
 
 n1, n2, n3 = st.columns(3)
 with n1.expander("Data notes — everything from BC"):

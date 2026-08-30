@@ -113,6 +113,13 @@ invoice columns left blank, then `Total - AED` and `% of Amount paid`.
 Remarks carries BC's document number: the workbook leaves it blank on data rows,
 and it keeps a posting traceable without adding a column.
 
+The statement can be **exported to Excel** (`soa_excel.py`) — one sheet in the
+same layout, with real dates carrying the workbook's `d-mmm-yy` format, the
+accounting number format, its column widths, and `Total - AED` / `% of Amount
+paid`. The download is served by `st.download_button` rather than a link inside
+the dashboard: the page renders in a sandboxed iframe, which blocks downloads
+started from within it.
+
 **Statements are produced for Zetas only**, per `mapping.SOA_SUPPLIERS`. That
 format was agreed for Zetas; add a vendor number to the set once its format is
 confirmed. Suppliers without a statement have no print button on the register —
