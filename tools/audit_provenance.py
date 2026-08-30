@@ -48,9 +48,13 @@ def main():
                 offenders.append(code[max(0, m.start() - 30):m.end() + 30].replace("\n", " ").strip())
         check(not offenders, "%s reads no data file" % name, " | ".join(offenders[:2]))
 
+    # supplier_categories.csv is a generated OUTPUT; the client's SOA workbook is a
+    # layout reference. Neither is opened at runtime -- the check above proves that
+    # by inspecting every read in the source.
+    REFERENCE_ONLY = ("supplier_categories.csv", "Zetas Zemin_ SOA.xlsx")
     data_files = [f for f in os.listdir(APP)
                   if f.endswith((".csv", ".json", ".xlsx", ".xlsm"))
-                  and f != "supplier_categories.csv"]  # a generated OUTPUT, never read
+                  and f not in REFERENCE_ONLY]
     check(not data_files, "no readable data files in the app folder", ", ".join(data_files))
 
     # ---------------------------------------------------------------- template

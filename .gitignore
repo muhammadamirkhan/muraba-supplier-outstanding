@@ -15,3 +15,8 @@ Supplier_Dashboard.html
 __pycache__/
 *.pyc
 .claude/
+
+# Client reference workbooks -- supplier financials, and the app never reads them
+# (the SOA layout was transcribed into template.html, not loaded at runtime).
+*.xlsx
+*.xlsm

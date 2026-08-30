@@ -9,17 +9,23 @@ value on the live page comes from it. Everything is pulled from BC on refresh:
 | Which vendors appear | every `Vendor_No` in `VendorLedgerEntries` with non-zero money |
 | Names | BC `Vendor_Name`, verbatim |
 | Categories | name of the vendor's dominant G/L cost account (`PostedPurchaseInvoiceLines` → `Chart_of_Accounts`) |
-| Invoiced / Paid / Outstanding | ledger credit/debit/`Remaining_Amt_LCY` columns (credit memos netted off invoiced) |
+| Invoiced / Paid / Outstanding | signed `Amount_LCY` split by sign, plus `Remaining_Amt_LCY` (credit memos netted off invoiced) |
 | Open invoices, printable SOA ledgers | the same ledger entries |
 | As-of date | latest sane posting date |
 
 ## Money rules
 
 ```
+invoiced    = -sum(Amount_LCY) where Amount_LCY < 0   (charged to us)
+              less credit memos, which cancel part of a charge
+paid        =  sum(Amount_LCY) where Amount_LCY > 0   (settled), memos excluded
 outstanding = -sum(Remaining_Amt_LCY)
-invoiced    =  sum(Credit_Amount_LCY) - credit-memo debits
-paid        =  sum(Debit_Amount_LCY)  - credit-memo debits
 ```
+
+Use the **signed amount**, never the Credit/Debit columns: BC books some
+reversing journals with negative debits *and* negative credits, which makes a
+literal sum of those columns come out negative on both lines. `build_ledger`
+must use the same basis or statement totals stop reconciling to the register.
 
 Never filter on `Document_Type` — blank on ~45% of entries (journal-posted).
 BC keeps AP balances negative; everything is sign-flipped for display.
