@@ -51,3 +51,19 @@ CLIENT_CATEGORY_OVERRIDES = {
     # invoice lines for this vendor (journal-only), so BC offers no category.
     "VLLC0396": "Marketing Cost",
 }
+
+
+# --------------------------------------------------------------------------
+# Statement of Account availability
+#
+# The SOA is rendered in the exact format of the client's own workbook
+# (Zetas Zemin_ SOA.xlsx, first sheet). That format was signed off for Zetas
+# only, so the statement is offered for Zetas alone until the client confirms
+# it suits the rest. Every other supplier still has its full transaction list
+# on the Transactions tab and its balances on the register.
+#
+# Add a vendor number here once its statement format is agreed.
+# --------------------------------------------------------------------------
+SOA_SUPPLIERS = {
+    "VLLC0485",   # Zetas Zemin Teknolojisi A.S Dubai Branch
+}

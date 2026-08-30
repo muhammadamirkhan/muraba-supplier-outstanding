@@ -72,6 +72,12 @@ def _fmt_date(s):
     return f"{d.day:02d}-{MONTHS[d.month - 1]}-{d.year}" if d else ""
 
 
+def _fmt_date_soa(s):
+    """d-mmm-yy, the format the client's SOA workbook uses (27-Feb-25)."""
+    d = _date(s)
+    return f"{d.day}-{MONTHS[d.month - 1]}-{str(d.year)[2:]}" if d else ""
+
+
 def _is_credit_memo(e):
     return (e.get("Document_Type") or "").strip() == "Credit Memo"
 
@@ -427,8 +433,11 @@ def build_transactions(entries, refs, descriptions):
     return rows
 
 
-LEDGER_HEAD = ["Supplier Inv. No", "Invoice Date", "Invoice Amount", "Payment Date",
-               "Payment Amount", "Balance", "Description", "BC Ref."]
+# Column headings copied verbatim from the client's SOA workbook (first sheet,
+# row 4). Remarks carries BC's document number: the workbook leaves it blank on
+# data rows, and the reference keeps a posting traceable without adding a column.
+LEDGER_HEAD = ["Invoice No", "Invoice Date", "Invoice Amount", "Payment Date",
+               "Payment Amount", "Balance", "Description", "Remarks"]
 
 
 def build_ledger(entries, descriptions, currency, refs=None):
@@ -444,7 +453,7 @@ def build_ledger(entries, descriptions, currency, refs=None):
     for e in entries:
         doc = e.get("Document_No") or ""
         ref = refs.get(doc) or ""          # the supplier's own invoice number
-        date = _fmt_date(e.get("Posting_Date"))
+        date = _fmt_date_soa(e.get("Posting_Date"))
         desc = descriptions.get(doc) or ""
         # Classify on the SIGNED amount, exactly as _money() does, so the
         # statement's totals reconcile to the supplier's register row. Using the
@@ -603,7 +612,11 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
             "ageing": _ageing(entries, asof),
             "master_aed": None,
         }
-        LEDGERS[name] = build_ledger(entries, descriptions, ccy, refs)
+        # A statement is produced only where its format has been agreed with the
+        # client -- currently Zetas alone. Everyone else keeps balances on the
+        # register and the full entry list on the Transactions tab.
+        if no in mapping.SOA_SUPPLIERS:
+            LEDGERS[name] = build_ledger(entries, descriptions, ccy, refs)
         TXNS[name] = build_transactions(entries, refs, descriptions)
 
     PERF = build_perf({no: grouped[no] for no in names}, names)
@@ -623,6 +636,7 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
         "asof": asof.isoformat() if asof else "",
         "age_buckets": [b[0] for b in AGE_BUCKETS],
         "txn_rows": sum(len(v) for v in TXNS.values()),
+        "soa_suppliers": sorted(LEDGERS),
         "total_outstanding": round(sum(v["outstanding_aed"] or 0 for v in DATA.values()), 2),
         "total_invoiced": round(sum(v["invoiced_aed"] or 0 for v in DATA.values()), 2),
         "total_paid": round(sum(v["paid_aed"] or 0 for v in DATA.values()), 2),

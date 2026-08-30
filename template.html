@@ -88,9 +88,6 @@ label.sl{color:var(--mut);font-size:12px;font-weight:600}
 .agebar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--track);margin:10px 0 4px}
 .agebar span{display:block}
 .soapick{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
-#soaSearch{background:#fff;border:1px solid var(--line);border-radius:7px;padding:8px 12px;
-  font-size:13px;min-width:300px;font-family:inherit;color:var(--txt)}
-#soaSearch:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(68,114,196,.12)}
 #soaList{max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
 #soaList div{padding:8px 12px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--line);
   display:flex;justify-content:space-between;gap:12px}
@@ -255,14 +252,7 @@ table.srctab code{background:#F2F5FA;border-radius:4px;padding:1px 5px;font-size
  <div class="panel">
   <div class="soahdr"><h2>Statement of Account</h2>
    <button class="btn print" id="soaPrint" style="display:none">&#128424; Print statement</button></div>
-  <div class="soapick">
-   <input id="soaSearch" type="search" placeholder="Search a supplier to open its statement&hellip;"
-          autocomplete="off">
-   <label class="chk"><input type="checkbox" id="soaOnlyBal" checked> With a balance only</label>
-   <span id="soaCount" class="tag"></span>
-  </div>
-  <div id="soaList"></div>
-  <div id="soaView" style="margin-top:18px"></div>
+  <div id="soaView"></div>
  </div>
 </div>
 
@@ -291,6 +281,14 @@ table.srctab code{background:#F2F5FA;border-radius:4px;padding:1px 5px;font-size
 <script>
 const DATA=__DATA_JSON__, LEDGERS=__LEDGERS_JSON__, PERF=__PERF_JSON__, TXNS=__TXNS_JSON__, TXNHEAD=__TXNHEAD_JSON__;
 const C=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+// Accounting format used by the client's SOA workbook:
+// _(* #,##0_);_(* (#,##0);_(* "-"??_)  -> zero prints as a dash, negatives in
+// parentheses, no decimals. Used on the statement only; the rest of the
+// dashboard keeps fmt().
+const acct=n=>{if(n===''||n==null)return '';
+ const v=Math.round(Number(n)); if(!isFinite(v))return '';
+ if(v===0)return '-';
+ return v<0?'('+Math.abs(v).toLocaleString('en-US')+')':v.toLocaleString('en-US');};
 const fmt=n=>{if(n==null||n==='')return '—';let r=Math.round(n);if(r===0)r=0;/* also turns -0 into 0 */return r.toLocaleString('en-US');};
 const sup=Object.values(DATA).sort((a,b)=>(b.outstanding_aed||0)-(a.outstanding_aed||0));
 const SIDX={}; sup.forEach((s,i)=>SIDX[s.name]=i);
@@ -417,7 +415,7 @@ function row(s){
   <td class="num">${s.has_soa?fmt(s.paid_aed):'—'}</td>
   <td class="num"><b>${Math.abs(s.outstanding_aed||0)>0.01?(s.outstanding_aed<0?'<span class="cred">('+fmt(-s.outstanding_aed)+')</span>':fmt(s.outstanding_aed)):'—'}</b></td>
   <td>${collectedBar(s)}</td>
-  <td><button class="btn" onclick="event.stopPropagation();printSup('${s.name.replace(/'/g,"\\'")}')">🖨</button></td></tr>
+  <td>${LEDGERS[s.name]?`<button class="btn" onclick="event.stopPropagation();printSup('${s.name.replace(/'/g,"\\'")}')">🖨</button>`:''}</td></tr>
  <tr class="detail" style="display:none"><td colspan="7">${detail(s)}</td></tr>`;
 }
 // Three independent filters that AND together: category, nil-balance toggle and
@@ -498,7 +496,7 @@ function showTab(which){
  document.getElementById('tabRegBtn').classList.toggle('on', which==='register');
  document.getElementById('tabSoaBtn').classList.toggle('on', which==='soa');
  document.getElementById('tabTxnBtn').classList.toggle('on', which==='txn');
- if(which==='soa'){ renderAgeing(); renderSoaList(); }
+ if(which==='soa'){ renderAgeing(); renderSoa(); }
  if(which==='txn'){ renderTxnList(); }
 }
 
@@ -595,64 +593,46 @@ function ageCells(t, elGrid, elBar){
 function renderAgeing(){ ageCells(ageTotals(sup),'ageAll','ageBarAll'); }
 
 // ---------------------------------------------------------------- SOA tab
-let soaQuery='', soaSel=null;
-function soaCandidates(){
- const onlyBal=document.getElementById('soaOnlyBal').checked;
- return sup.filter(s=>{
-   if(onlyBal && !(Math.abs(s.outstanding_aed||0)>1)) return false;
-   if(soaQuery && !(s.name||'').toLowerCase().includes(soaQuery)) return false;
-   return true;});
-}
-function renderSoaList(){
- const L=soaCandidates();
- document.getElementById('soaCount').textContent=`${L.length} supplier${L.length===1?'':'s'}`;
- document.getElementById('soaList').innerHTML = L.length
-  ? L.map(s=>`<div data-n="${encodeURIComponent(s.name)}" class="${soaSel===s.name?'sel':''}"
-       onclick="pickSoa(decodeURIComponent(this.dataset.n))">
-       <span>${s.name}</span>
-       <span class="amt">${(s.outstanding_aed<0?'('+fmt(-s.outstanding_aed)+')':fmt(s.outstanding_aed))} AED</span>
-     </div>`).join('')
-  : `<div style="color:var(--mut)">No suppliers match.</div>`;
-}
-function pickSoa(name){
- soaSel=name; renderSoaList();
- const s=sup.find(x=>x.name===name); const L=LEDGERS[name];
- document.getElementById('soaPrint').style.display = L ? '' : 'none';
- document.getElementById('soaPrint').onclick=()=>printSup(name);
- if(!s){ document.getElementById('soaView').innerHTML=''; return; }
- const cc=(L&&L.currency)||s.currency;
- const ag=s.ageing&&s.ageing[ageBasis()];
- let ageBlock='';
- if(ag && s.ageing.count){
-  const tot=AGE_KEYS.reduce((x,k)=>x+Math.max(0,ag[k]),0)||1;
-  ageBlock=`<div style="margin:14px 0 4px"><div class="ppsub">Ageing of this supplier's
-    ${s.ageing.count} open item${s.ageing.count===1?'':'s'}</div>
-    <div class="agebar">${AGE_KEYS.map(k=>{const w=100*Math.max(0,ag[k])/tot;
-      return w<=0?'':`<span style="width:${w}%;background:${AGE_COL[k]}" title="${k}d: ${fmt(ag[k])}"></span>`;}).join('')}</div>
-    <div class="agegrid" id="ageOne"></div></div>`;
+// Statements are produced only where the format has been agreed -- Zetas alone
+// for now (transform.py builds LEDGERS from mapping.SOA_SUPPLIERS). The layout
+// below reproduces the client's own workbook: the eight columns of its first
+// sheet, then Total - AED and % of Amount paid, with amounts in the workbook's
+// accounting format.
+function renderSoa(){
+ const names=Object.keys(LEDGERS);
+ const host=document.getElementById('soaView');
+ const btn=document.getElementById('soaPrint');
+ if(!names.length){
+   btn.style.display='none';
+   host.innerHTML='<p class="note">No statement is configured yet.</p>';
+   return;
  }
- let body='';
- if(L){
-  const NUM=[2,4,5];
-  body=`<table class="soatab"><thead><tr>${L.head.map(h=>`<th class="${NUM.includes(L.head.indexOf(h))?'num':''}">${h}</th>`).join('')}</tr></thead><tbody>`+
-   L.rows.map(r=>'<tr>'+r.map((c,i)=>`<td class="${NUM.includes(i)?'num':''}">${
-      (c===''||c==null)?'':(NUM.includes(i)&&typeof c==='number'?fmt(c):c)}</td>`).join('')+'</tr>').join('')+
-   `<tr class="tot"><td>Total &mdash; ${cc}</td><td></td><td class="num">${fmt(L.invoiced)}</td>
-      <td></td><td class="num">${fmt(L.paid)}</td><td class="num">${fmt(L.invoiced-L.paid)}</td>
-      <td colspan="2">${L.invoiced>0?(100*L.paid/L.invoiced).toFixed(1):'0.0'}% of invoiced value paid</td></tr>`+
-   `</tbody></table>`;
- } else {
-  body=`<p class="note">No ledger entries in BC for this supplier.</p>`;
- }
- document.getElementById('soaView').innerHTML=
-  `<div class="soahdr"><div><div style="font-size:17px;font-weight:700;color:var(--slate)">${s.name}</div>
-     <div class="tag">Statement of Account as of __ASOF__${cc!=='AED'?' &middot; amounts in '+cc:''}</div></div>
-     <div><span class="cat">${s.category}</span></div></div>${ageBlock}${body}`;
- if(ag && s.ageing.count) ageCells(ag,'ageOne',null);
+ const name=names[0], L=LEDGERS[name], s=sup.find(x=>x.name===name);
+ btn.style.display=''; btn.onclick=()=>printSup(name);
+ const cc=L.currency||'AED', NUM=[2,4,5];
+ const pct=L.invoiced>0?(100*L.paid/L.invoiced):0;
+ host.innerHTML=
+  `<div style="font-size:17px;font-weight:700;color:var(--slate)">${name}</div>
+   <div class="tag" style="margin-bottom:10px">Statement of Account as of __ASOF__${
+     cc!=='AED'?' &middot; amounts in '+cc:''}</div>
+   <div class="txnwrap" style="max-height:none">
+   <table class="soatab"><thead><tr>`+
+   L.head.map((h,i)=>`<th class="${NUM.includes(i)?'num':''}">${h}</th>`).join('')+
+   `</tr></thead><tbody>`+
+   L.rows.map(r=>'<tr>'+r.map((c,i)=>
+      `<td class="${NUM.includes(i)?'num':(i===6?'desc':'')}">${
+         NUM.includes(i)?acct(c):(c==null?'':c)}</td>`).join('')+'</tr>').join('')+
+   `<tr class="tot"><td>Total - ${cc}</td><td></td><td class="num">${acct(L.invoiced)}</td>
+      <td></td><td class="num">${acct(L.paid)}</td>
+      <td class="num">${acct(L.invoiced-L.paid)}</td><td></td><td>-</td></tr>
+    <tr class="tot"><td>% of Amount paid</td><td></td>
+      <td class="num">${pct.toFixed(2)}%</td><td></td><td></td><td></td><td></td><td></td></tr>`+
+   `</tbody></table></div>
+   <div class="tag" style="margin-top:8px">Layout follows the client's SOA workbook.
+    Statements are enabled per supplier once their format is agreed; every other
+    supplier's entries are on the <b>Transactions</b> tab.</div>`;
 }
-document.getElementById('soaSearch').oninput=e=>{soaQuery=(e.target.value||'').trim().toLowerCase(); renderSoaList();};
-document.getElementById('soaOnlyBal').onchange=renderSoaList;
-document.getElementById('ageBasis').onchange=()=>{renderAgeing(); if(soaSel) pickSoa(soaSel);};
+document.getElementById('ageBasis').onchange=()=>{renderAgeing();};
 
 document.getElementById('foot').innerHTML=
  '<b>Source.</b> Every figure on this page is read from Microsoft Dynamics 365 Business Central at refresh time — '+

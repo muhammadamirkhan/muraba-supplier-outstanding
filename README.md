@@ -102,10 +102,23 @@ register itself.
 
 **Statement of Account & Ageing** — payables ageing for the whole book
 (0-30 / 31-60 / 61-90 / 91-180 / 181-360 / 360+, switchable between invoice-date
-and due-date basis), plus an on-screen Statement of Account for any supplier,
-with its own search. The statement reproduces the layout of the client's
-`Zetas Zemin_ SOA.xlsx`: Supplier Inv. No, Invoice Date, Invoice Amount, Payment
-Date, Payment Amount, Balance, Description, then Total — AED and % paid.
+and due-date basis), plus the Statement of Account.
+
+The statement reproduces the first sheet of the client's `Zetas Zemin_ SOA.xlsx`
+exactly: the eight columns of its row 4 — Invoice No, Invoice Date, Invoice
+Amount, Payment Date, Payment Amount, Balance, Description, Remarks — dates as
+`d-mmm-yy`, amounts in the workbook's accounting format (no decimals, zero as a
+dash, negatives in parentheses), a part-payment continuation row with the
+invoice columns left blank, then `Total - AED` and `% of Amount paid`.
+Remarks carries BC's document number: the workbook leaves it blank on data rows,
+and it keeps a posting traceable without adding a column.
+
+**Statements are produced for Zetas only**, per `mapping.SOA_SUPPLIERS`. That
+format was agreed for Zetas; add a vendor number to the set once its format is
+confirmed. Suppliers without a statement have no print button on the register —
+their entries are on the Transactions tab and their balances on the register.
+The VAT lines below the workbook's table (Outstanding VAT Amount) are not
+reproduced: BC holds no VAT figure for them.
 
 A `360+` bucket is added beyond the five requested: roughly AED 7.8m of open
 items are older than 360 days and would otherwise be missing from a table that
