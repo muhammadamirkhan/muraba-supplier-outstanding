@@ -188,6 +188,49 @@ def _breakdown(name, entries, descriptions, currency):
     return {"con": con, "var": var, "bifurcate": True, "currency": currency}
 
 
+# Payables ageing. The client asked for 0-30 / 30-60 / 60-90 / 90-180 / 180-360;
+# 360+ is added because roughly AED 7.8m of open items are older than that and
+# would otherwise vanish from a table that is meant to total the payable.
+AGE_BUCKETS = [("0-30", 0, 30), ("31-60", 31, 60), ("61-90", 61, 90),
+               ("91-180", 91, 180), ("181-360", 181, 360), ("360+", 361, 10 ** 6)]
+
+
+def _bucket(days):
+    for label, lo, hi in AGE_BUCKETS:
+        if lo <= days <= hi:
+            return label
+    return AGE_BUCKETS[0][0] if days < 0 else AGE_BUCKETS[-1][0]
+
+
+def _ageing(entries, asof):
+    """Open items bucketed by age, on both bases BC supports.
+
+    'invoice' ages from the posting date -- how long the payable has existed.
+    'due' ages from the due date -- how overdue it is. Both are BC fields and
+    both total to the supplier's outstanding balance, so the two views agree on
+    the total and differ only in distribution.
+    """
+    out = {"invoice": {b[0]: 0.0 for b in AGE_BUCKETS},
+           "due": {b[0]: 0.0 for b in AGE_BUCKETS},
+           "count": 0}
+    if not asof:
+        return out
+    for e in entries:
+        if not e.get("Open"):
+            continue
+        amt = -_n(e, "Remaining_Amt_LCY")
+        if abs(amt) < 0.01:
+            continue
+        out["count"] += 1
+        for key, field in (("invoice", "Posting_Date"), ("due", "Due_Date")):
+            d = _date(e.get(field))
+            if d:
+                out[key][_bucket((asof - d).days)] += amt
+    for key in ("invoice", "due"):
+        out[key] = {k: _zero(round(v, 2)) for k, v in out[key].items()}
+    return out
+
+
 def supplier_refs(purchase_invoices):
     """BC Document_No -> the supplier's OWN invoice number.
 
@@ -351,13 +394,17 @@ def build_ledger(entries, descriptions, currency, refs=None):
         ref = refs.get(doc) or ""          # the supplier's own invoice number
         date = _fmt_date(e.get("Posting_Date"))
         desc = descriptions.get(doc) or ""
-        cred, deb = _n(e, "Credit_Amount"), _n(e, "Debit_Amount")
-        if cred > 0:
-            invs.append({"doc": doc, "ref": ref, "date": date, "amt": cred,
-                         "left": cred, "desc": desc})
-        if deb > 0:
+        # Classify on the SIGNED amount, exactly as _money() does, so the
+        # statement's totals reconcile to the supplier's register row. Using the
+        # Credit/Debit columns here made them disagree, because BC books some
+        # reversals with negative debits AND credits.
+        a = _n(e, "Amount")
+        if a < 0:
+            invs.append({"doc": doc, "ref": ref, "date": date, "amt": -a,
+                         "left": -a, "desc": desc})
+        elif a > 0:
             (memos if _is_credit_memo(e) else pays).append(
-                {"doc": doc, "ref": ref, "date": date, "amt": deb, "left": deb, "desc": desc}
+                {"doc": doc, "ref": ref, "date": date, "amt": a, "left": a, "desc": desc}
             )
 
     # FIFO: each payment settles the oldest invoice still open
@@ -458,6 +505,8 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
     coa = coa or {}
     refs = supplier_refs(purchase_invoices)
     grouped, skipped = group_entries(vle)
+    asof = max((_date(e.get("Posting_Date")) for e in vle
+                if _plausible(e) and _date(e.get("Posting_Date"))), default=None)
 
     descriptions = {}
     for ln in (invoice_lines or []):
@@ -499,6 +548,7 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
             **{k: round(v, 2) for k, v in m.items()},
             "breakdown": _breakdown(name, entries, descriptions, ccy),
             "opens": _opens(entries, refs),
+            "ageing": _ageing(entries, asof),
             "master_aed": None,
         }
         LEDGERS[name] = build_ledger(entries, descriptions, ccy, refs)
@@ -517,6 +567,8 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
         "open_items": sum(len(v["opens"]) for v in DATA.values()),
         "descriptions": len(descriptions),
         "supplier_refs": len(refs),
+        "asof": asof.isoformat() if asof else "",
+        "age_buckets": [b[0] for b in AGE_BUCKETS],
         "total_outstanding": round(sum(v["outstanding_aed"] or 0 for v in DATA.values()), 2),
         "total_invoiced": round(sum(v["invoiced_aed"] or 0 for v in DATA.values()), 2),
         "total_paid": round(sum(v["paid_aed"] or 0 for v in DATA.values()), 2),

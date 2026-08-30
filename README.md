@@ -88,3 +88,19 @@ verification tools (`tools/`), the category export (`supplier_categories.csv`),
 Cloud secrets (`cloud_secrets.toml`, gitignored), and the original reference
 dashboard (`Supplier_Dashboard.html`, gitignored — kept for layout reference
 only; no value on the live page comes from it).
+
+## Tabs
+
+**Supplier Register** — the KPI strip, charts, payment performance and the
+register itself.
+
+**Statement of Account & Ageing** — payables ageing for the whole book
+(0-30 / 31-60 / 61-90 / 91-180 / 181-360 / 360+, switchable between invoice-date
+and due-date basis), plus an on-screen Statement of Account for any supplier,
+with its own search. The statement reproduces the layout of the client's
+`Zetas Zemin_ SOA.xlsx`: Supplier Inv. No, Invoice Date, Invoice Amount, Payment
+Date, Payment Amount, Balance, Description, then Total — AED and % paid.
+
+A `360+` bucket is added beyond the five requested: roughly AED 7.8m of open
+items are older than 360 days and would otherwise be missing from a table that
+is meant to total the payable. Buckets always sum to Total Outstanding.
