@@ -66,7 +66,11 @@ def load(_bust: int = 0):
         coa = bc.chart_of_accounts(token)
     except bc.BCError:
         coa = {}
-    return vle, lines, coa
+    try:
+        pinv = bc.purchase_invoices(token)
+    except bc.BCError:
+        pinv = []  # falls back to BC's own document numbers
+    return vle, lines, coa, pinv
 
 
 # -------------------------------------------------------------------- controls
@@ -74,7 +78,7 @@ def load(_bust: int = 0):
 # renders no DOM for this app, and a full-width report reads better with a top
 # control strip anyway.
 try:
-    vle, lines, coa = load()
+    vle, lines, coa, pinv = load()
 except bc.BCError as e:
     st.error(f"Business Central: {e}")
     st.info(
@@ -83,7 +87,7 @@ except bc.BCError as e:
     )
     st.stop()
 
-DATA, PERF, LEDGERS, diag = transform.build(vle, lines, coa)
+DATA, PERF, LEDGERS, diag = transform.build(vle, lines, coa, pinv)
 
 latest = max(
     (str(e.get("Posting_Date") or "")[:10] for e in vle

@@ -62,7 +62,12 @@ tr.suprow:hover{background:var(--soft)}
 .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
 .controls .catbtn{background:#fff;color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:6px 13px;font-size:12px;cursor:pointer;font-weight:600}
 .controls .catbtn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
-select{background:#fff;color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-size:13px;min-width:240px}
+#supSearch{background:#fff;color:var(--txt);border:1px solid var(--line);border-radius:7px;
+  padding:7px 12px;font-size:13px;min-width:260px}
+#supSearch:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(68,114,196,.12)}
+label.chk{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--slate);
+  font-weight:600;cursor:pointer;user-select:none}
+label.chk input{cursor:pointer;width:15px;height:15px;accent-color:var(--blue)}
 label.sl{color:var(--mut);font-size:12px;font-weight:600}
 .tag{font-size:10px;color:var(--mut)}
 .cred{color:#e35d6a}
@@ -159,11 +164,11 @@ table.srctab code{background:#F2F5FA;border-radius:4px;padding:1px 5px;font-size
 <div class="panel">
 <h2>Supplier Register — click a row for the statement summary; print for the full SOA</h2>
 <div class="controls">
-<label class="sl">Jump to supplier:</label>
-<select id="supSelect"><option value="__ALL__">— All suppliers —</option></select>
+<input id="supSearch" type="search" placeholder="Search suppliers…" autocomplete="off">
+<label class="chk"><input type="checkbox" id="hideNil"> Hide nil balance</label>
+<span id="hits" class="tag"></span>
 <span style="flex:1"></span>
 <button class="catbtn active" data-f="all">All</button>
-<button class="catbtn" data-f="outstanding">Has balance</button>
 <span id="catbtns"></span>
 </div>
 <table id="suptable"><thead><tr>
@@ -255,8 +260,6 @@ new Chart(document.getElementById('trendChart'),{type:'bar',
  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>PERF.trend[c.dataIndex].avg+' days avg · AED '+fmt(PERF.trend[c.dataIndex].paid)}}},
   scales:{x:{ticks:{color:C('--mut'),font:{size:9},maxRotation:50,minRotation:45},grid:{display:false}},y:{ticks:{color:C('--mut'),callback:v=>v+'d'},grid:{color:C('--line')}}}}});
 
-const sel=document.getElementById('supSelect');
-sup.forEach(s=>{const o=document.createElement('option');o.value=s.name;o.textContent=s.name+(Math.abs(s.outstanding_aed||0)>1?'  ·  '+(s.outstanding_aed<0?'('+fmt(-s.outstanding_aed)+')':fmt(s.outstanding_aed))+' AED':'');sel.appendChild(o);});
 function collectedBar(s){
  if(!s.has_soa||!(s.invoiced_aed>0)) return '<span class="tag">—</span>';
  // Paid can exceed invoiced (unapplied payments, open credit memos). Report the
@@ -290,8 +293,8 @@ function detail(s){
  const ppline=pp?`<p class="note">Payment speed: avg <b>${pp.avg} days</b> to pay &middot; ${pp.w30}% on-time (&le;30d) &middot; analysed AED ${fmt(pp.paid)} paid.</p>`:'';
  let inv='';
  if(s.opens&&s.opens.length){
-  inv=`<table class="itab"><thead><tr><th>Invoice / Item</th><th>Date</th><th class="num">Open (${cc})</th><th class="num">Open (AED)</th></tr></thead><tbody>`+
-   s.opens.map(i=>`<tr><td>${i.no}</td><td>${i.date||'—'}</td><td class="num">${fmt(i.amt)}</td><td class="num">${fmt(i.amt_aed)}</td></tr>`).join('')+`</tbody></table>`;
+  inv=`<table class="itab"><thead><tr><th>Supplier Inv. No</th><th>BC Ref.</th><th>Date</th><th class="num">Open (${cc})</th><th class="num">Open (AED)</th></tr></thead><tbody>`+
+   s.opens.map(i=>`<tr><td>${i.no||'<span class="tag">not an invoice</span>'}</td><td class="tag">${i.bc_no||''}</td><td>${i.date||'—'}</td><td class="num">${fmt(i.amt)}</td><td class="num">${fmt(i.amt_aed)}</td></tr>`).join('')+`</tbody></table>`;
  } else if(s.has_soa && Math.abs(s.outstanding_aed||0)>1){
   inv=`<p class="note">No open items in BC — this balance is fully applied.</p>`;
  }
@@ -309,10 +312,26 @@ function row(s){
   <td><button class="btn" onclick="event.stopPropagation();printSup('${s.name.replace(/'/g,"\\'")}')">🖨</button></td></tr>
  <tr class="detail" style="display:none"><td colspan="7">${detail(s)}</td></tr>`;
 }
-let curF='all';
-function render(f){curF=f; resetSupCharts();
- const L=sup.filter(s=> f==='all'?true : f==='outstanding'?Math.abs(s.outstanding_aed||0)>1 : s.category===f);
- document.getElementById('tbody').innerHTML=L.map(row).join('');}
+// Three independent filters that AND together: category, nil-balance toggle and
+// free-text search. Previously the category buttons and "has balance" were
+// mutually exclusive, so you could not ask for e.g. Construction WITH a balance.
+let curF='all', hideNil=false, query='';
+function visible(s){
+ if(curF!=='all' && s.category!==curF) return false;
+ if(hideNil && !(Math.abs(s.outstanding_aed||0)>1)) return false;
+ if(query && !(s.name||'').toLowerCase().includes(query)) return false;
+ return true;
+}
+function render(f){
+ if(f!==undefined) curF=f;
+ resetSupCharts();
+ const L=sup.filter(visible);
+ document.getElementById('tbody').innerHTML=L.length
+   ? L.map(row).join('')
+   : `<tr><td colspan="7" style="padding:22px;text-align:center;color:var(--mut)">No suppliers match.</td></tr>`;
+ const h=document.getElementById('hits');
+ if(h) h.textContent = L.length===sup.length ? `${sup.length} suppliers`
+                                             : `${L.length} of ${sup.length} suppliers`;}
 function tog(tr){tr.classList.toggle('open');const dt=tr.nextElementSibling;const op=dt.style.display==='none';dt.style.display=op?'':'none';
  if(op){const s=sup.find(x=>x.name===tr.getAttribute('data-name')); if(s) requestAnimationFrame(()=>renderSupChart(s));}}
 // Category buttons are built from the data: tags change (and new ones appear via
@@ -326,12 +345,14 @@ document.getElementById('catbtns').innerHTML=Object.keys(catCount)
   .map(c=>`<button class="catbtn" data-f="${c}">${ABBR[c]||c} <span style="opacity:.6">${catCount[c]}</span></button>`)
   .join('');
 render('all');
-document.querySelectorAll('.catbtn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.catbtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');sel.value='__ALL__';render(b.dataset.f);});
-sel.onchange=()=>{const v=sel.value;if(v==='__ALL__'){render(curF);return;}
- resetSupCharts();
- document.getElementById('tbody').innerHTML=row(sup.find(s=>s.name===v));
- const tr=document.querySelector('#tbody tr.suprow');if(tr)tog(tr);
- document.getElementById('suptable').scrollIntoView({behavior:'smooth'});};
+document.querySelectorAll('.catbtn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.catbtn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); render(b.dataset.f);});
+document.getElementById('hideNil').onchange=e=>{hideNil=e.target.checked; render();};
+const _search=document.getElementById('supSearch');
+_search.oninput=e=>{query=(e.target.value||'').trim().toLowerCase(); render();};
+_search.onkeydown=e=>{if(e.key==='Escape'){_search.value='';query='';render();}};
+
 function printSup(name){
  const s=sup.find(x=>x.name===name); const L=LEDGERS[name];
  const cc=L?L.currency:s.currency; const NUM=[2,4,5];

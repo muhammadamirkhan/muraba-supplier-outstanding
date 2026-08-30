@@ -188,8 +188,27 @@ def _breakdown(name, entries, descriptions, currency):
     return {"con": con, "var": var, "bifurcate": True, "currency": currency}
 
 
-def _opens(entries):
+def supplier_refs(purchase_invoices):
+    """BC Document_No -> the supplier's OWN invoice number.
+
+    Vendor Ledger Entries carry only BC's internal posting number (PPI003272).
+    Finance reconciles against the reference printed on the supplier's invoice,
+    which BC stores as vendorInvoiceNumber on the posted purchase invoice.
+    Payments, journals and credit memos have no such reference -- correctly, as
+    they are not supplier invoices -- and keep the BC number.
+    """
+    out = {}
+    for r in purchase_invoices or []:
+        doc = (r.get("number") or "").strip()
+        ref = (r.get("vendorInvoiceNumber") or "").strip()
+        if doc and ref:
+            out[doc] = ref
+    return out
+
+
+def _opens(entries, refs=None):
     """Itemised open invoices -- the original dashboard could never fill these."""
+    refs = refs or {}
     rows = []
     for e in entries:
         if not e.get("Open"):
@@ -197,8 +216,14 @@ def _opens(entries):
         rem = -_n(e, "Remaining_Amount")
         if abs(rem) < 0.01:
             continue
+        doc = e.get("Document_No") or ""
         rows.append({
-            "no": e.get("Document_No") or "",
+            # Supplier reference only. Payments, journals and credit memos have
+            # none -- correctly, they are not supplier invoices -- and the BC
+            # column carries the document number for every row anyway, so do
+            # not fall back to it here or both columns read the same.
+            "no": refs.get(doc, ""),
+            "bc_no": doc,
             "date": _fmt_date(e.get("Posting_Date")),
             "amt": round(rem, 2),
             "amt_aed": round(-_n(e, "Remaining_Amt_LCY"), 2),
@@ -307,11 +332,11 @@ def build_perf(grouped, names):
 # printable statements
 # ---------------------------------------------------------------------------
 
-LEDGER_HEAD = ["Invoice No", "Invoice Date", "Invoice Amount", "Payment Date",
-               "Payment Amount", "Balance", "Description", "Remarks"]
+LEDGER_HEAD = ["Supplier Inv. No", "Invoice Date", "Invoice Amount", "Payment Date",
+               "Payment Amount", "Balance", "Description", "BC Ref."]
 
 
-def build_ledger(entries, descriptions, currency):
+def build_ledger(entries, descriptions, currency, refs=None):
     """Statement rows, pairing each invoice with the payment(s) that settled it.
 
     The original statements put invoice and payment side by side on one row, so
@@ -319,17 +344,20 @@ def build_ledger(entries, descriptions, currency):
     against the same invoice gets a continuation row; an unmatched payment
     (prepayment / overpayment) gets its own row.
     """
+    refs = refs or {}
     invs, pays, memos = [], [], []
     for e in entries:
         doc = e.get("Document_No") or ""
+        ref = refs.get(doc) or ""          # the supplier's own invoice number
         date = _fmt_date(e.get("Posting_Date"))
         desc = descriptions.get(doc) or ""
         cred, deb = _n(e, "Credit_Amount"), _n(e, "Debit_Amount")
         if cred > 0:
-            invs.append({"doc": doc, "date": date, "amt": cred, "left": cred, "desc": desc})
+            invs.append({"doc": doc, "ref": ref, "date": date, "amt": cred,
+                         "left": cred, "desc": desc})
         if deb > 0:
             (memos if _is_credit_memo(e) else pays).append(
-                {"doc": doc, "date": date, "amt": deb, "left": deb, "desc": desc}
+                {"doc": doc, "ref": ref, "date": date, "amt": deb, "left": deb, "desc": desc}
             )
 
     # FIFO: each payment settles the oldest invoice still open
@@ -358,28 +386,28 @@ def build_ledger(entries, descriptions, currency):
             paid_tot += first[1]
             running -= first[1]
         rows.append([
-            inv["doc"], inv["date"], round(inv["amt"], 2),
+            inv["ref"], inv["date"], round(inv["amt"], 2),
             first[0]["date"] if first else "",
             round(first[1], 2) if first else "",
-            round(running, 2), inv["desc"], "",
+            round(running, 2), inv["desc"], inv["doc"],
         ])
         for p, amt in pair[1:]:
             paid_tot += amt
             running -= amt
             rows.append(["", "", "", p["date"], round(amt, 2),
-                         round(running, 2), "", "part payment"])
+                         round(running, 2), "part payment", p["doc"]])
 
     for p in leftover:
         paid_tot += p["left"]
         running -= p["left"]
         rows.append(["", "", "", p["date"], round(p["left"], 2),
-                     round(running, 2), p["desc"], "unapplied"])
+                     round(running, 2), p["desc"] or "unapplied payment", p["doc"]])
 
     for m in memos:
         inv_tot -= m["amt"]
         running -= m["amt"]
-        rows.append([m["doc"], m["date"], round(-m["amt"], 2), "", "",
-                     round(running, 2), m["desc"], "credit memo"])
+        rows.append([m["ref"], m["date"], round(-m["amt"], 2), "", "",
+                     round(running, 2), m["desc"] or "credit memo", m["doc"]])
 
     summary = [[p["date"], round(p["amt"], 2)] for p in pays]
     return {
@@ -421,13 +449,14 @@ def _derive_category(accounts, coa):
     return mapping.clean_category(coa.get(acct_no)), acct_no
 
 
-def build(vle, invoice_lines=None, coa=None):
+def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
     """-> (DATA, PERF, LEDGERS, diagnostics). Everything from BC.
 
     Register = every vendor in the ledger with non-zero money. The reference
     HTML contributes layout only.
     """
     coa = coa or {}
+    refs = supplier_refs(purchase_invoices)
     grouped, skipped = group_entries(vle)
 
     descriptions = {}
@@ -469,10 +498,10 @@ def build(vle, invoice_lines=None, coa=None):
             "has_soa": True,
             **{k: round(v, 2) for k, v in m.items()},
             "breakdown": _breakdown(name, entries, descriptions, ccy),
-            "opens": _opens(entries),
+            "opens": _opens(entries, refs),
             "master_aed": None,
         }
-        LEDGERS[name] = build_ledger(entries, descriptions, ccy)
+        LEDGERS[name] = build_ledger(entries, descriptions, ccy, refs)
 
     PERF = build_perf({no: grouped[no] for no in names}, names)
 
@@ -487,6 +516,7 @@ def build(vle, invoice_lines=None, coa=None):
         "categories": sorted({v["category"] for v in DATA.values()}),
         "open_items": sum(len(v["opens"]) for v in DATA.values()),
         "descriptions": len(descriptions),
+        "supplier_refs": len(refs),
         "total_outstanding": round(sum(v["outstanding_aed"] or 0 for v in DATA.values()), 2),
         "total_invoiced": round(sum(v["invoiced_aed"] or 0 for v in DATA.values()), 2),
         "total_paid": round(sum(v["paid_aed"] or 0 for v in DATA.values()), 2),

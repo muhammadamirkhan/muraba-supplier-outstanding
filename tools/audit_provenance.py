@@ -59,8 +59,10 @@ def main():
     for phrase in ("supplier-folder", "3.6725", "at indicative rates",
                    "Statement of Account files", "Statement of Account register"):
         check(phrase not in tpl, "no stale claim %r" % phrase)
-    # money on this page is always comma-grouped; account numbers are not
-    money = re.findall(r"\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b", tpl)
+    # Money on this page is always comma-grouped; account numbers are not.
+    # Strip rgb()/rgba() first -- CSS colours are comma-grouped triples too.
+    css_free = re.sub(r"rgba?\([^)]*\)", "", tpl)
+    money = re.findall(r"\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b", css_free)
     check(not money, "no hardcoded amounts", ", ".join(money[:5]))
 
     # ---------------------------------------------------------------- live

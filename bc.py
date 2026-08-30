@@ -154,3 +154,14 @@ def chart_of_accounts(token=None):
     """G/L account No -> Name. Categories are derived from these names."""
     rows = fetch_all(f"ODataV4/{COMPANY}/Chart_of_Accounts", token)
     return {r.get("No"): (r.get("Name") or "").strip() for r in rows if r.get("No")}
+
+
+def purchase_invoices(token=None):
+    """Posted purchase invoices, for the SUPPLIER'S OWN invoice number.
+
+    Vendor Ledger Entries only carry BC's internal posting number (PPI003272);
+    `vendorInvoiceNumber` here is the reference printed on the supplier's own
+    invoice, which is what Finance reconciles against. Populated on every posted
+    invoice, and the `number` joins to the ledger's Document_No.
+    """
+    return fetch_all(f"api/v2.0/companies({COMPANY_ID})/purchaseInvoices", token)
