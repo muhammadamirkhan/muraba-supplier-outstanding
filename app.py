@@ -30,7 +30,7 @@ except (ImportError, AttributeError):  # pragma: no cover - version dependent
     _render_iframe = None
 
 
-def render_dashboard(html: str, height: int = 4300):
+def render_dashboard(html: str, height: int = 4540):
     if _render_iframe is not None:
         _render_iframe(html, height=height, scrolling=True)
         return

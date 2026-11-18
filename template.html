@@ -195,7 +195,7 @@ table.srctab code{background:#F2F5FA;border-radius:4px;padding:1px 5px;font-size
 <div id="tab-register">
 <div class="kpis" id="kpis"></div>
 <div class="grid2">
-<div class="panel"><h2>Outstanding by Supplier</h2><div class="chartbox"><canvas id="supChart"></canvas></div></div>
+<div class="panel"><h2>Outstanding by Supplier</h2><div class="chartbox" id="supBox"><canvas id="supChart"></canvas></div></div>
 <div class="panel"><h2>Outstanding by Category</h2><div class="chartbox"><canvas id="catChart"></canvas></div><div class="legend" id="catLegend"></div></div>
 </div>
 <div class="panel" style="margin-bottom:22px">
@@ -334,12 +334,20 @@ document.getElementById('kpis').innerHTML=[
 ].map(k=>`<div class="kpi${k[3]?' lead':''}"><div class="lbl">${k[0]}</div><div class="val">${k[1]}</div><div class="note">${k[2]}</div></div>`).join('');
 
 const wd=sup.filter(s=>(s.outstanding_aed||0)>1);
+// One y tick per bar, always. In a fixed 330px box Chart.js autoSkips ticks it
+// cannot fit -- with 33 suppliers it dropped every second name, so the names on
+// screen sat beside other suppliers' bars and the (correct) tooltip looked like
+// it disagreed with the chart. Size the box to the data and never skip a tick.
+const SUPN=wd.map(s=>s.name);
+document.getElementById('supBox').style.height=Math.max(260,SUPN.length*16+28)+'px';
 new Chart(document.getElementById('supChart'),{type:'bar',
- data:{labels:wd.map(s=>s.name),datasets:[{data:wd.map(s=>s.outstanding_aed),backgroundColor:C('--blue'),borderRadius:3,barThickness:'flex',maxBarThickness:20}]},
+ data:{labels:SUPN,datasets:[{data:wd.map(s=>s.outstanding_aed),backgroundColor:C('--blue'),borderRadius:3,barThickness:'flex',maxBarThickness:20}]},
  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-  plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.parsed.x)+' AED'}}},
+  plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>SUPN[c[0].dataIndex],label:c=>fmt(c.parsed.x)+' AED'}}},
   scales:{x:{ticks:{color:C('--mut'),callback:v=>v/1e6+'M'},grid:{color:C('--line')}},
-          y:{ticks:{color:C('--slate'),font:{size:10.5}},grid:{display:false}}}}});
+          y:{ticks:{autoSkip:false,color:C('--slate'),font:{size:10.5},
+                    callback:function(v){const t=this.getLabelForValue(v);return t.length>44?t.slice(0,43)+'…':t;}},
+             grid:{display:false}}}}});
 
 const PAL=['#4472C4','#2f5597','#8EAADB','#44546A','#A9C0E8','#6b7a99','#c7d4ec','#3B62B0'];
 const cats={}; sup.forEach(s=>{if((s.outstanding_aed||0)>1)cats[s.category]=(cats[s.category]||0)+s.outstanding_aed;});
