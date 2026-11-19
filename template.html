@@ -352,11 +352,16 @@ new Chart(document.getElementById('supChart'),{type:'bar',
 const PAL=['#4472C4','#2f5597','#8EAADB','#44546A','#A9C0E8','#6b7a99','#c7d4ec','#3B62B0'];
 const cats={}; sup.forEach(s=>{if((s.outstanding_aed||0)>1)cats[s.category]=(cats[s.category]||0)+s.outstanding_aed;});
 const ck=Object.keys(cats).sort((a,b)=>cats[b]-cats[a]);
+// A doughnut cannot draw a negative slice, so suppliers in credit are left out
+// of this panel. Percentages must therefore be taken against what IS drawn --
+// against Total Outstanding they would add up to more than 100%.
+const catTot=ck.reduce((s,c)=>s+cats[c],0), catCr=catTot-totOut;
 new Chart(document.getElementById('catChart'),{type:'doughnut',
  data:{labels:ck,datasets:[{data:ck.map(c=>cats[c]),backgroundColor:ck.map((c,i)=>PAL[i%PAL.length]),borderColor:'#fff',borderWidth:2}]},
  options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
-  plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.parsed)+' AED ('+(100*c.parsed/totOut).toFixed(0)+'%)'}}}}});
-document.getElementById('catLegend').innerHTML=ck.map((c,i)=>`<span><span class="dot" style="background:${PAL[i%PAL.length]}"></span>${c} · ${fmt(cats[c])}</span>`).join('');
+  plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.parsed)+' AED ('+(100*c.parsed/catTot).toFixed(0)+'%)'}}}}});
+document.getElementById('catLegend').innerHTML=ck.map((c,i)=>`<span><span class="dot" style="background:${PAL[i%PAL.length]}"></span>${c} · ${fmt(cats[c])}</span>`).join('')
+ +(Math.round(catCr)>=1?`<span style="flex-basis:100%;font-size:11px;color:var(--mut)">Totals ${fmt(catTot)} AED. Suppliers in credit (${fmt(catCr)} AED) carry a negative balance and cannot be drawn as a slice, so this is higher than Total Outstanding (${fmt(totOut)} AED). Percentages are of the ${fmt(catTot)} shown.</span>`:'');
 const PB={"0-30":"#3ec46d","31-60":"#e3a857","61-90":"#f08a3c","90+":"#e35d6a"},PBK=["0-30","31-60","61-90","90+"];
 const cp=PERF.company;
 document.getElementById('ppkpis').innerHTML=[
