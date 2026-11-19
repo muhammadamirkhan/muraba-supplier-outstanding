@@ -71,7 +71,11 @@ def load(_bust: int = 0):
         pinv = bc.purchase_invoices(token)
     except bc.BCError:
         pinv = []  # falls back to BC's own document numbers
-    return vle, lines, coa, pinv
+    try:
+        vcats = bc.vendor_categories(token)
+    except bc.BCError:
+        vcats = {}  # categories fall back to the G/L derivation
+    return vle, lines, coa, pinv, vcats
 
 
 # -------------------------------------------------------------------- controls
@@ -79,7 +83,7 @@ def load(_bust: int = 0):
 # renders no DOM for this app, and a full-width report reads better with a top
 # control strip anyway.
 try:
-    vle, lines, coa, pinv = load()
+    vle, lines, coa, pinv, vcats = load()
 except bc.BCError as e:
     st.error(f"Business Central: {e}")
     st.info(
@@ -88,7 +92,7 @@ except bc.BCError as e:
     )
     st.stop()
 
-DATA, PERF, LEDGERS, TXNS, diag = transform.build(vle, lines, coa, pinv)
+DATA, PERF, LEDGERS, TXNS, diag = transform.build(vle, lines, coa, pinv, vcats)
 
 # Streamlit re-runs this script and re-reads template.html from disk, but keeps
 # imported modules cached. A server started before a transform.py change will
@@ -151,6 +155,7 @@ if LEDGERS:
             except Exception as e:  # never let an export fault take the page down
                 st.caption(f"Excel export unavailable: {e}")
 
+card = len(diag.get("category_from_card", []))
 n1, n2, n3 = st.columns(3)
 with n1.expander("Data notes — everything from BC"):
     st.markdown(
@@ -160,10 +165,11 @@ The reference HTML is layout only; no value on this page comes from it. Click **
 - **Vendors** = every vendor in BC's ledger with non-zero money
   ({diag['vendors_shown']} of {diag['vendors_in_ledger']} in the ledger).
 - **Names** = BC `Vendor_Name`, verbatim.
-- **Categories** = the name of each vendor's dominant G/L cost account
-  (purchase invoice lines record the account; the Chart of Accounts names it).
-  Mechanics accounts (CWIP, advances, prepaid, accruals) are skipped when a
-  real cost line exists.
+- **Categories** = what Finance recorded on the BC vendor card (Territory
+  Code) where it is set — {card} vendor(s) today. Otherwise the name of that
+  vendor's dominant G/L cost account (purchase invoice lines record the
+  account; the Chart of Accounts names it), with mechanics accounts (CWIP,
+  advances, prepaid, accruals) skipped when a real cost line exists.
 - **Money**: outstanding = `Remaining_Amt_LCY`; invoiced/paid from the **signed**
   `Amount_LCY` (BC books some reversals with negative debits *and* credits, so the
   Debit/Credit columns can't be summed literally), credit memos netted off

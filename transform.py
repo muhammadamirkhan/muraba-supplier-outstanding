@@ -557,13 +557,14 @@ def _derive_category(accounts, coa):
     return mapping.clean_category(coa.get(acct_no)), acct_no
 
 
-def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
+def build(vle, invoice_lines=None, coa=None, purchase_invoices=None, vendor_cats=None):
     """-> (DATA, PERF, LEDGERS, diagnostics). Everything from BC.
 
     Register = every vendor in the ledger with non-zero money. The reference
     HTML contributes layout only.
     """
     coa = coa or {}
+    vendor_cats = vendor_cats or {}
     refs = supplier_refs(purchase_invoices)
     grouped, skipped = group_entries(vle)
     asof = max((_date(e.get("Posting_Date")) for e in vle
@@ -580,7 +581,7 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
     spend = _vendor_spend_by_account(invoice_lines)
 
     DATA, LEDGERS, TXNS = {}, {}, {}
-    names, uncategorised, overridden = {}, [], []
+    names, uncategorised, overridden, from_card = {}, [], [], []
     for no, entries in grouped.items():
         m = _money(entries)
         if all(abs(m[k]) < 1 for k in ("invoiced_aed", "paid_aed", "outstanding_aed")):
@@ -592,7 +593,16 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
             name = f"{name} ({no})"
         names[no] = name
 
-        if no in mapping.CLIENT_CATEGORY_OVERRIDES:
+        # Category precedence: what Finance recorded on the BC vendor card wins,
+        # then any standing client instruction, then the G/L derivation. The first
+        # is a value read from BC like any other, so it does not weaken the rule
+        # that every figure on the page comes from BC -- it just comes from the
+        # vendor master rather than the posting lines.
+        cat_src = mapping.territory_category(vendor_cats.get(no))
+        if cat_src:
+            cat = cat_src
+            from_card.append((no, name, cat))
+        elif no in mapping.CLIENT_CATEGORY_OVERRIDES:
             cat = mapping.CLIENT_CATEGORY_OVERRIDES[no]
             overridden.append((no, name, cat))
         else:
@@ -629,6 +639,7 @@ def build(vle, invoice_lines=None, coa=None, purchase_invoices=None):
         "vendors_shown": len(DATA),
         "uncategorised": sorted(uncategorised, key=lambda x: -abs(x[2])),
         "client_overrides": overridden,
+        "category_from_card": from_card,
         "categories": sorted({v["category"] for v in DATA.values()}),
         "open_items": sum(len(v["opens"]) for v in DATA.values()),
         "descriptions": len(descriptions),

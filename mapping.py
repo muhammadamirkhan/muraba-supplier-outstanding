@@ -44,6 +44,33 @@ def clean_category(account_name):
     return s or UNCATEGORISED
 
 
+# Vendor category, as Finance records it in Business Central.
+#
+# BC's vendor card has no category field, so the client uses Territory Code --
+# unused across the whole vendor master (0 of 800), a real lookup field on the
+# card, and therefore a dropdown rather than free text. Finance maintains the
+# values; this map only turns BC's Code[10] into the label the dashboard prints,
+# because the Territory table is not a published OData service so its Name
+# column cannot be read. If a Territories service is ever published, read the
+# name from BC and delete this map.
+#
+# Labels are Usman's own wording, from the 2026-11-19 category return.
+TERRITORY_CATEGORY = {
+    "CONSTR":     "Construction",
+    "DESIGNSUP":  "Design & Supervision",
+    "MARKETING":  "Marketing",
+    "LEGALADMIN": "Legal & Admin",
+    "BROKERAGE":  "Brokerage & Commission",
+    "SERVCHARGE": "Service Charges",
+    "BLDGMAINT":  "Building Maintenance",
+}
+
+
+def territory_category(code):
+    """Label for a BC Territory Code, or None if it is not a category code."""
+    return TERRITORY_CATEGORY.get((code or "").strip().upper())
+
+
 # Client instructions -- the only human-set categories, each dated and sourced.
 # These are NOT from the reference HTML.
 CLIENT_CATEGORY_OVERRIDES = {

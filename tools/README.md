@@ -25,3 +25,12 @@ on the page. Exits non-zero on any failure.
 "not available from BC" statements shown in the app's Data sources panel
 against the live company. Re-run them before repeating those claims to a
 client — one of them was wrong the first time.
+
+`export_vendor_categories.py` writes the vendor list Finance fills in —
+balances, the app's own derived category as evidence, and a blank
+dropdown-validated column for theirs.
+
+`set_vendor_categories.py` is the **only script here that writes to Business
+Central**. It reads that workbook back and PATCHes each vendor's `Territory
+Code`. Dry run by default; `--apply` writes. The Territory codes have to exist
+in BC first — they cannot be created over the API.

@@ -51,7 +51,8 @@ def main():
     # supplier_categories.csv is a generated OUTPUT; the client's SOA workbook is a
     # layout reference. Neither is opened at runtime -- the check above proves that
     # by inspecting every read in the source.
-    REFERENCE_ONLY = ("supplier_categories.csv", "Zetas Zemin_ SOA.xlsx")
+    REFERENCE_ONLY = ("supplier_categories.csv", "Zetas Zemin_ SOA.xlsx",
+                      "Vendor Categories - for Usman.xlsx")
     data_files = [f for f in os.listdir(APP)
                   if f.endswith((".csv", ".json", ".xlsx", ".xlsm"))
                   and f not in REFERENCE_ONLY]
@@ -76,9 +77,14 @@ def main():
     # ---------------------------------------------------------------- live
     head(3, "LIVE PULL: every rendered value reconciles to BC")
     vle, lines, coa = pull()
+    try:
+        vcats = bc.vendor_categories()
+    except Exception as e:  # the audit must still run if the feed is unavailable
+        print("  note: vendor master unreadable (%s); card categories not exercised" % e)
+        vcats = {}
     print("  pulled %s ledger entries, %s invoice lines, %s accounts"
           % (format(len(vle), ","), format(len(lines), ","), format(len(coa), ",")))
-    DATA, PERF, LEDGERS, TXNS, diag = transform.build(vle, lines, coa)
+    DATA, PERF, LEDGERS, TXNS, diag = transform.build(vle, lines, coa, None, vcats)
 
     # recompute balances straight from the raw feed, bypassing transform
     raw = {}
@@ -112,9 +118,21 @@ def main():
     check(not notbc, "every supplier name is a BC Vendor Name", str(notbc[:3]))
 
     acct_names = {mapping.clean_category(v) for v in coa.values()}
-    allowed = acct_names | {mapping.UNCATEGORISED} | set(mapping.CLIENT_CATEGORY_OVERRIDES.values())
+    # Territory-Code categories are read from the BC vendor card, so they are a
+    # BC value like any other -- but they are NOT Chart-of-Accounts names, so
+    # they have to be named here or this check cries wolf on them.
+    allowed = (acct_names | {mapping.UNCATEGORISED}
+               | set(mapping.CLIENT_CATEGORY_OVERRIDES.values())
+               | set(mapping.TERRITORY_CATEGORY.values()))
     odd = sorted({v["category"] for v in DATA.values()} - allowed)
-    check(not odd, "every category is a Chart-of-Accounts name", str(odd[:5]))
+    check(not odd, "every category is a BC value (G/L account name or vendor-card "
+          "Territory Code)", str(odd[:5]))
+
+    card = diag.get("category_from_card", [])
+    bad_card = [c for c in card if c[2] not in mapping.TERRITORY_CATEGORY.values()]
+    check(not bad_card, "vendor-card categories all resolve through mapping.TERRITORY_CATEGORY",
+          str(bad_card[:3]))
+    print("    %d vendor(s) categorised from the BC vendor card" % len(card))
 
     ovr = diag.get("client_overrides", [])
     check(len(ovr) <= len(mapping.CLIENT_CATEGORY_OVERRIDES),

@@ -8,7 +8,7 @@ value on the live page comes from it. Everything is pulled from BC on refresh:
 |---|---|
 | Which vendors appear | every `Vendor_No` in `VendorLedgerEntries` with non-zero money |
 | Names | BC `Vendor_Name`, verbatim |
-| Categories | name of the vendor's dominant G/L cost account (`PostedPurchaseInvoiceLines` → `Chart_of_Accounts`) |
+| Categories | `workflowVendors` → `Territory Code` where Finance has set it; otherwise the name of the vendor's dominant G/L cost account (`PostedPurchaseInvoiceLines` → `Chart_of_Accounts`) |
 | Invoiced / Paid / Outstanding | signed `Amount_LCY` split by sign, plus `Remaining_Amt_LCY` (credit memos netted off invoiced) |
 | Open invoices, printable SOA ledgers | the same ledger entries |
 | As-of date | latest sane posting date |
@@ -30,6 +30,28 @@ must use the same basis or statement totals stop reconciling to the register.
 Never filter on `Document_Type` — blank on ~45% of entries (journal-posted).
 BC keeps AP balances negative; everything is sign-flipped for display.
 Entries with implausible posting dates (2029/3035 typos) are skipped.
+
+## Vendor category on the BC vendor card
+
+BC's vendor card has no category field. Finance records the category in
+`Territory Code` — unused for its original purpose across the whole master (0
+of 800 vendors), and a lookup field, so it is picked from a list when the
+vendor is created rather than typed free-hand. `bc.vendor_categories()` reads
+it from `workflowVendors`; `mapping.TERRITORY_CATEGORY` turns the Code[10] into
+the label, because the Territory table is **not** a published OData service and
+its `Name` column cannot be read. Publish a Territories service and that map
+can be deleted in favour of BC's own name.
+
+Precedence: vendor card → standing client instruction → G/L derivation.
+
+`tools/set_vendor_categories.py` writes the categories into BC from the
+returned workbook — the only script here that writes anything. Dry run by
+default, `--apply` to write, `If-Match` per vendor so a record edited since the
+read is skipped rather than clobbered. The Territory **codes must exist in BC
+first**; they cannot be created over the API (no Territories service, and the
+v2.0 API has no territories entity), so the rows are added once in the BC UI.
+Until then every PATCH fails `Internal_InvalidTableRelation` and nothing
+changes.
 
 ## Category derivation
 

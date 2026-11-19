@@ -156,6 +156,30 @@ def chart_of_accounts(token=None):
     return {r.get("No"): (r.get("Name") or "").strip() for r in rows if r.get("No")}
 
 
+def vendor_categories(token=None):
+    """Vendor No -> Territory Code, the client's vendor category.
+
+    BC has no native category on the vendor card. Finance (Usman) enters the
+    category into the otherwise-unused Territory Code field, which is a real
+    lookup field on the card, so it is a dropdown rather than free text and is
+    captured when the vendor is created. `mapping.TERRITORY_CATEGORY` turns the
+    Code[10] into the label shown on the dashboard -- the Territory table itself
+    is not a published service, so its Name column cannot be read. Publish a
+    Territories service and this map can be dropped.
+
+    Vendors with the field blank are absent from the result and fall back to the
+    G/L-derived category.
+    """
+    rows = fetch_all(f"ODataV4/{COMPANY}/workflowVendors", token)
+    out = {}
+    for r in rows:
+        code = (r.get("territoryCode") or "").strip().upper()
+        no = (r.get("number") or "").strip()
+        if code and no:
+            out[no] = code
+    return out
+
+
 def purchase_invoices(token=None):
     """Posted purchase invoices, for the SUPPLIER'S OWN invoice number.
 
