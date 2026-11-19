@@ -71,11 +71,17 @@ def load(_bust: int = 0):
         pinv = bc.purchase_invoices(token)
     except bc.BCError:
         pinv = []  # falls back to BC's own document numbers
+    # Streamlit re-reads THIS script on every rerun but keeps imported modules
+    # cached, so a redeploy can run a new app.py against an old bc.py. That is a
+    # missing attribute, not a BCError, and it must not take the page down: fall
+    # back to the G/L derivation and let the guard below say what happened.
+    if not hasattr(bc, "vendor_categories"):
+        return vle, lines, coa, pinv, {}, True
     try:
         vcats = bc.vendor_categories(token)
     except bc.BCError:
         vcats = {}  # categories fall back to the G/L derivation
-    return vle, lines, coa, pinv, vcats
+    return vle, lines, coa, pinv, vcats, False
 
 
 # -------------------------------------------------------------------- controls
@@ -83,7 +89,7 @@ def load(_bust: int = 0):
 # renders no DOM for this app, and a full-width report reads better with a top
 # control strip anyway.
 try:
-    vle, lines, coa, pinv, vcats = load()
+    vle, lines, coa, pinv, vcats, stale_bc = load()
 except bc.BCError as e:
     st.error(f"Business Central: {e}")
     st.info(
@@ -99,6 +105,15 @@ DATA, PERF, LEDGERS, TXNS, diag = transform.build(vle, lines, coa, pinv, vcats)
 # therefore serve a NEW template against OLD data -- which once rendered an
 # arbitrary supplier under the Statement of Account heading. Fail loudly rather
 # than let that look authoritative.
+if stale_bc:
+    st.warning(
+        "This server is running a stale `bc` module — Streamlit does not reload "
+        "imported modules when it re-reads the script, so a redeploy can pair a new "
+        "`app.py` with an old `bc.py`. Categories recorded on the BC vendor card are "
+        "not being read; everything else is current. **Reboot the app** (Manage app → "
+        "Reboot) to clear it."
+    )
+
 if len(LEDGERS) > len(mapping.SOA_SUPPLIERS):
     st.error(
         f"Statement mismatch: {len(LEDGERS)} statements built but only "
